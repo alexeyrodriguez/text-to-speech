@@ -1,0 +1,16 @@
+import models
+import utils
+
+fft_length = 256
+frame_step = 64
+frame_length = 256
+sample_rate = 16000
+mel_bins = 40
+
+utils.stft_transform.frame_length = %frame_length
+utils.stft_transform.frame_step = %frame_step
+utils.stft_transform.fft_length = %fft_length
+
+utils.make_mel_filter_bank.num_mel_filter_banks = %mel_bins
+utils.make_mel_filter_bank.fft_length = %fft_length
+utils.make_mel_filter_bank.sample_rate = %sample_rate
