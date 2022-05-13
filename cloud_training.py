@@ -31,9 +31,13 @@ def gcloud_create_instance(instance_name, creation_args=gin.REQUIRED):
 REMOTE_RUNNER = 'scripts/run_remote_training.sh'
 
 @gin.configurable
-def gcloud_remote_training(args, instance_name, git_repo_url=gin.REQUIRED, git_branch=gin.REQUIRED):
-    command = ' '.join(['bash', os.path.basename(REMOTE_RUNNER), git_repo_url, git_branch, args.experiment])
-    command = f'nohup {command} 2>nohup.err.$$ >nohup.out.$$ ; tail -f nohup.out.$$ &'
+def gcloud_remote_training(args, instance_name,
+        git_repo_url=gin.REQUIRED, git_branch=gin.REQUIRED, gcs_model_path=gin.REQUIRED):
+    command = ' '.join([
+        'bash', os.path.basename(REMOTE_RUNNER), git_repo_url, git_branch, args.experiment, gcs_model_path
+    ])
+    # Comment for easier debugging
+    command = f'nohup {command} 2>nohup.err.$$ >nohup.out.$$ ; tail -n 100 -f nohup.out.$$ &'
     return gcloud(['compute', 'ssh', '--command=' + command, instance_name])
 
 if __name__=='__main__':
