@@ -7,23 +7,6 @@ import prepare_data
 # Options manual hack:
 
 @gin.configurable
-def naive_lstm_tts(latent_dims, mel_bins):
-    encoder_inputs = keras.Input(shape=(None,), dtype='int64', name='encoder_inputs')
-    embs = keras.layers.Embedding(input_dim=prepare_data.num_characters, output_dim=latent_dims)
-    encoder = keras.layers.LSTM(latent_dims, return_state=True, name='enc_lstm_1')
-    _encoder_outputs, state_h, state_c = encoder(embs(encoder_inputs))
-    encoder_states = [state_h, state_c]
-
-    decoder_inputs = keras.Input(shape=(None, mel_bins), dtype='float32', name='decoder_inputs')
-    decoder = keras.layers.LSTM(latent_dims, return_sequences=True, return_state=True, name='dec_lstm_1')
-    decoder_outputs, _, _ = decoder(decoder_inputs, initial_state=encoder_states)
-    decoder_outputs = keras.layers.Dense(mel_bins)(decoder_outputs)
-
-    model = keras.Model([encoder_inputs, decoder_inputs], decoder_outputs, name='baseline_lstm')
-
-    return model
-
-@gin.configurable
 class NaiveLstmTTS():
     def __init__(self, latent_dims, mel_bins):
         self.mel_bins = mel_bins
