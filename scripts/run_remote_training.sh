@@ -1,6 +1,12 @@
 #!/bin/bash
 
-# Arguments: git repo url, branch, experiment configuration file, gcs bucket where to copy model
+# Arguments:
+#  - git repo url
+#  - branch
+#  - experiment configuration file
+#  - gcs bucket where to copy model
+#  - wandb api key
+#  - wandb entity
 
 # Get required env
 . /etc/profile
@@ -19,11 +25,16 @@ else
     git pull
 fi
 
+if [[ ! -z "${5}" ]]
+then
+  EXTRA_ARGS="--wandb-api-key $5 --wandb-entity $6"
+fi
+
 # put the below stuff into requirements
-pip install gin-config
+pip install gin-config wandb
 
 mkdir -p $MODEL_DIR
-python training.py --experiment $3 --model-dir $MODEL_DIR
+python training.py --experiment $3 --model-dir $MODEL_DIR $EXTRA_ARGS
 
 gsutil -m cp -r $MODEL_DIR/* $4
 

@@ -1,0 +1,25 @@
+
+gcloud.gcloud_path = 'gcloud'
+
+instance_name = 'trainer-gpu'
+
+gcloud_create_instance.creation_args = {
+    'image': 'https://www.googleapis.com/compute/v1/projects/ml-images/global/images/c1-deeplearning-tf-2-8-cu113-v20220316-debian-10',
+    'accelerator': 'type=nvidia-tesla-t4,count=1',
+    'machine-type': 'n1-standard-8',
+    'boot-disk-size': '120GB',
+    'maintenance-policy': 'TERMINATE',
+    'metadata': 'install-nvidia-driver=True',
+    'scopes': 'storage-rw', # Needed to copy the model to gcs
+}
+
+gcloud_remote_training.git_repo_url = 'https://github.com/alexeyrodriguez/simple-tts.git' # Point to your repo
+gcloud_remote_training.git_branch = 'master' # You might want to use something different to master
+gcloud_remote_training.gcs_model_path = 'gs://BUCKET/DIR/'
+
+# Fill in the following two if you want to enable Wandb logging
+# gcloud_remote_training.wandb_api_key = 'SOME_KEY'
+# gcloud_remote_training.wandb_entity = 'SOME_ENTITY'
+
+
+
