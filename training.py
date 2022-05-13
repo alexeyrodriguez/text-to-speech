@@ -21,7 +21,7 @@ def adapt_dataset(_spectrogram, mel_spec, emb_transcription):
     return (emb_transcription, in_mel_spec), out_mel_spec
 
 @gin.configurable
-def train(optimizer, epochs, model):
+def train(args, optimizer, epochs, model):
     training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset)
 
     #model = models.naive_lstm_tts()
@@ -41,20 +41,21 @@ def train(optimizer, epochs, model):
 
     experiment_name = gin.query_parameter('experiment_name')
     model_name = gin.query_parameter('train.model').selector
-    model_name = f'models/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{experiment_name}__{model_name}'
+    model_name = f'{args.model_dir}/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{experiment_name}__{model_name}'
     print(f'Writing model to disk under {model_name}')
     model.save(model_name)
 
 
 parser = argparse.ArgumentParser(description='Training script.')
-parser.add_argument('--experiment', action = 'store', type = str, help = 'Gin file with experiment configuration.', required=True)
+parser.add_argument('--experiment', action = 'store', type = str, help = 'Experiment configuration', required=True)
+parser.add_argument('--model-dir', action = 'store', type = str, help = 'Directory where models are saved', default='models')
 
 if __name__=='__main__':
     args = parser.parse_args()
     gin.parse_config_file(args.experiment)
     gin.constant('experiment_name', os.path.splitext(os.path.basename(args.experiment))[0])
 
-    train(optimizer=gin.REQUIRED, epochs=gin.REQUIRED, model=gin.REQUIRED)
+    train(args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED, model=gin.REQUIRED)
 
 
 
