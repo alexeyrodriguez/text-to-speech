@@ -1,4 +1,4 @@
-include 'config/default.gin'
+include 'config/default_8khz.gin'
 
 import gin.tf.external_configurables
 
