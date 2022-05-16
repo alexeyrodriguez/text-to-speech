@@ -7,6 +7,8 @@ frame_length = 256
 sample_rate = 16000
 mel_bins = 40
 
+datasets.target_sample_rate = %sample_rate
+
 utils.stft_transform.frame_length = %frame_length
 utils.stft_transform.frame_step = %frame_step
 utils.stft_transform.fft_length = %fft_length

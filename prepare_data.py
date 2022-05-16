@@ -26,31 +26,44 @@ def prepare_ljspeech():
     #metadata_df = metadata_df.sample(frac=1.).reset_index(drop=True)
     return metadata_df, wavs_path
 
-def encode_single_sample(wavs_path, wav_file, transcription, mel_matrix,
-    keep_audio=False, keep_raw_spectrogram=False, keep_transcription=False):
+def decode_wav(wavs_path):
+    def do_it(wav_file, transcription):
+        file = tf.io.read_file(wavs_path + wav_file + ".wav")
+        audio, sample_rate = tf.audio.decode_wav(file)
+        return audio, sample_rate, transcription
+    return do_it
 
-    file = tf.io.read_file(wavs_path + wav_file + ".wav")
+def encode_single_sample(mel_matrix,
+        keep_audio=False, keep_raw_spectrogram=False, keep_transcription=False,
+        target_sample_rate=None
+    ):
+    def do_it(audio, sample_rate, transcription):
+        # Resample audio
+        if target_sample_rate:
+            audio = utils.resample(audio, sample_rate, target_sample_rate)
 
-    audio, _ = tf.audio.decode_wav(file)
-    audio = tf.squeeze(audio, axis=-1)
-    audio = tf.cast(audio, tf.float32)
+        audio = tf.squeeze(audio, axis=-1)
+        audio = tf.cast(audio, tf.float32)
 
-    label = tf.strings.lower(transcription)
-    label = tf.strings.unicode_split(label, input_encoding="UTF-8")
-    label = char_to_num(label)
+        label = tf.strings.lower(transcription)
+        label = tf.strings.unicode_split(label, input_encoding="UTF-8")
+        label = char_to_num(label)
 
-    norm_spectrogram, spectrogram, raw_spectrogram = utils.stft_transform(audio, gin.REQUIRED, gin.REQUIRED, gin.REQUIRED)
-    mel_spec = tf.matmul(spectrogram, mel_matrix)
+        norm_spectrogram, spectrogram, raw_spectrogram = \
+            utils.stft_transform(audio, gin.REQUIRED, gin.REQUIRED, gin.REQUIRED)
+        mel_spec = tf.matmul(spectrogram, mel_matrix)
 
-    res = [spectrogram, mel_spec, label]
-    if keep_audio:
-        res.append(audio)
-    if keep_raw_spectrogram:
-        res.append(raw_spectrogram)
-    if keep_transcription:
-        res.append(transcription)
+        res = [spectrogram, mel_spec, label]
+        if keep_audio:
+            res.append(audio)
+        if keep_raw_spectrogram:
+            res.append(raw_spectrogram)
+        if keep_transcription:
+            res.append(transcription)
 
-    return tuple(res)
+        return tuple(res)
+
+    return do_it
 
 @gin.configurable
 def datasets(batch_size=32, frames_threshold=None, adapter=None, prefetch=True, take_batches=None, **kwargs):
@@ -58,14 +71,12 @@ def datasets(batch_size=32, frames_threshold=None, adapter=None, prefetch=True, 
 
     mel_matrix = utils.make_mel_filter_bank(gin.REQUIRED, gin.REQUIRED, gin.REQUIRED)
 
-    def encode(wav_file, label):
-        return encode_single_sample(wavs_path, wav_file, label, mel_matrix, **kwargs)
-
     def create_dataset(df):
         dataset = tf.data.Dataset.from_tensor_slices(
             (list(df["file_name"]), list(df["normalized_transcription"]))
         )
-        dataset = dataset.map(encode, num_parallel_calls=tf.data.AUTOTUNE)
+        dataset = dataset.map(decode_wav(wavs_path), num_parallel_calls=tf.data.AUTOTUNE)
+        dataset = dataset.map(encode_single_sample(mel_matrix, **kwargs), num_parallel_calls=tf.data.AUTOTUNE)
 
         if frames_threshold:
             thr = int(frames_threshold)

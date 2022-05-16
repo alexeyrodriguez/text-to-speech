@@ -38,3 +38,17 @@ def griffin_lim(magnitude_spectrogram, fft_length, frame_step, iterations):
         prop_spectrogram = magnitude_spectrogram*tf.exp(tf.constant(1.0j)*h_angle)
         signal = tf.signal.inverse_stft(prop_spectrogram, frame_length=fft_length, frame_step=frame_step, fft_length=fft_length)
     return signal
+
+def resample(audio, in_sample_rate, out_sample_rate):
+    try:
+        import tensorflow_io as tfio
+        return tfio.audio.resample(audio, in_sample_rate, out_sample_rate)
+    except ModuleNotFoundError:
+        # Poor man's resampling
+        samples = tf.shape(audio)[0]
+        out_sample_rate = tf.cast(out_sample_rate, 'float32')
+        in_sample_rate = tf.cast(in_sample_rate, 'float32')
+        out_samples = tf.cast(samples, 'float32') * out_sample_rate / in_sample_rate
+        ixs = tf.cast(tf.range(tf.cast(out_samples, 'int32')), 'float32')
+        ixs = tf.cast(ixs / out_sample_rate * in_sample_rate, 'int32')
+        return tf.gather(audio, ixs)
