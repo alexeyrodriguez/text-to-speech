@@ -66,7 +66,9 @@ def encode_single_sample(mel_matrix,
     return do_it
 
 @gin.configurable
-def datasets(batch_size=32, frames_threshold=None, adapter=None, prefetch=True, take_batches=None, **kwargs):
+def datasets(batch_size=32, target_sample_rate=gin.REQUIRED,
+        secs_threshold=None, adapter=None, prefetch=True, take_batches=None, **kwargs
+    ):
     metadata_df, wavs_path = prepare_ljspeech()
 
     mel_matrix = utils.make_mel_filter_bank(gin.REQUIRED, gin.REQUIRED, gin.REQUIRED)
@@ -76,11 +78,14 @@ def datasets(batch_size=32, frames_threshold=None, adapter=None, prefetch=True, 
             (list(df["file_name"]), list(df["normalized_transcription"]))
         )
         dataset = dataset.map(decode_wav(wavs_path), num_parallel_calls=tf.data.AUTOTUNE)
-        dataset = dataset.map(encode_single_sample(mel_matrix, **kwargs), num_parallel_calls=tf.data.AUTOTUNE)
 
-        if frames_threshold:
-            thr = int(frames_threshold)
-            dataset = dataset.filter(lambda *x: tf.shape(x[0])[0] <= thr)
+        if secs_threshold:
+            samples_threshold = int(secs_threshold * target_sample_rate)
+            dataset = dataset.filter(lambda *x: tf.shape(x[0])[0] <= samples_threshold)
+
+        dataset = dataset.map(
+            encode_single_sample(mel_matrix, target_sample_rate=target_sample_rate, **kwargs), num_parallel_calls=tf.data.AUTOTUNE
+        )
 
         dataset = dataset.padded_batch(batch_size)
 

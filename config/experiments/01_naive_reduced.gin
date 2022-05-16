@@ -3,7 +3,7 @@ include 'config/default.gin'
 import gin.tf.external_configurables
 
 # Limit learning to samples up to 4 seconds
-datasets.frames_threshold = 1000
+datasets.secs_threshold = 4.0
 
 train.optimizer = @tf.keras.optimizers.Adam()
 train.epochs = 2
