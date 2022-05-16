@@ -23,12 +23,29 @@ parser.add_argument('--wandb-entity', action = 'store', type = str, help = 'Wand
 
 
 
-def adapt_dataset(_spectrogram, mel_spec, emb_transcription):
-    # mel_spec: [B, N, D]
-    # add go frame (zeros) and remove last one
+def adapt_dataset(spectrogram, mel_spec, emb_transcription):
+    '''
+    We adapt the dataset for the following tasks.
+    A sequence to sequence task in which the transcription is encoded
+    and used by a sequence decoder to predict the mel spectrogram.
+    The mel spectrogram decoder is trained using teacher forcing where
+    a so-called go-frame (all zeros) and the first n-1 mel spectrogram frames
+    are used as inputs and as outputs the full mel spectrogram frames.
+    A final task translates the sequence of mel spectrogram frames to
+    spectrogram frames.
+
+    Args:
+      spectrogram: sequence of spectrograms. shape = `[batch_size, n, s]`.
+      mel_spec: sequence of mel spectrograms. shape = `[batch_size, n, m]`.
+      emb_transcription: sequence of character embeddings. shape = `[batch_size, l, d]`
+    Returns:
+      Two pairs of inputs and outputs respectively. The inputs include the character
+      embeddings and the mel spectrogram inputs for the decoder task. The outputs
+      are the mel spectrogram outputs and spectrogram outputs.
+    '''
     in_mel_spec = tf.pad(mel_spec[:, :-1,:], [(0, 0), (1,0), (0,0)])
     out_mel_spec = mel_spec
-    return (emb_transcription, in_mel_spec), out_mel_spec
+    return (emb_transcription, in_mel_spec), (out_mel_spec, spectrogram)
 
 @gin.configurable
 def train(args, optimizer, epochs, model, wandb_project='simple-tts'):

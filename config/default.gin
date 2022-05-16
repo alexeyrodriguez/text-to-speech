@@ -2,6 +2,7 @@ import models
 import utils
 
 fft_length = 256
+spec_bins = 129 # UGLY at the moment: fft_length // 2 + 1
 frame_step = 64
 frame_length = 256
 sample_rate = 16000
