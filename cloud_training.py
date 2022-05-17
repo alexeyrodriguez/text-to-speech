@@ -7,6 +7,7 @@ import os
 parser = argparse.ArgumentParser(description='Training script.')
 parser.add_argument('--cloud-config', action = 'store', type = str, help = 'Cloud configuration', required=True)
 parser.add_argument('--experiment', action = 'store', type = str, help = 'Experiment configuration', required=True)
+parser.add_argument('--detach', action='store_true', help = 'Let execution continue even after disconnection')
 
 @gin.configurable
 def gcloud(args, check=True, gcloud_path='gcloud', fake=False):
@@ -40,8 +41,8 @@ def gcloud_remote_training(args, instance_name,
     if wandb_api_key:
         command.extend([wandb_api_key, wandb_entity])
     command = ' '.join(command)
-    # Comment for easier debugging
-    command = f'nohup {command} 2>nohup.err.$$ >nohup.out.$$ ; tail -n 100 -f nohup.out.$$ &'
+    if args.detach:
+        command = f'nohup {command} 2>nohup.err.$$ >nohup.out.$$ ; tail -n 100 -f nohup.out.$$ &'
     return gcloud(['compute', 'ssh', '--command=' + command, instance_name])
 
 if __name__=='__main__':
