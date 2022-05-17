@@ -12,7 +12,7 @@ class NaiveLstmTTS():
         self.mel_bins = mel_bins
 
         encoder_inputs = keras.Input(shape=(None,), dtype='int64', name='encoder_inputs')
-        embs = keras.layers.Embedding(input_dim=prepare_data.num_characters, output_dim=latent_dims)
+        embs = keras.layers.Embedding(input_dim=(1+prepare_data.num_characters), output_dim=latent_dims)
         encoder_lstm = keras.layers.LSTM(latent_dims, return_state=True, name='enc_lstm_1')
         encoder_outputs, state_h, state_c = encoder_lstm(embs(encoder_inputs))
         encoder_states = [state_h, state_c]
