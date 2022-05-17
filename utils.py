@@ -41,6 +41,7 @@ def griffin_lim(magnitude_spectrogram, fft_length, frame_step, iterations):
 
 def resample(audio, in_sample_rate, out_sample_rate):
     try:
+        raise ModuleNotFoundError # tmp because of a downstream bug
         import tensorflow_io as tfio
         out_sample_rate = tf.cast(out_sample_rate, 'int64')
         in_sample_rate = tf.cast(in_sample_rate, 'int64')
