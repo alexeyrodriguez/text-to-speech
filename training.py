@@ -53,16 +53,9 @@ def train(args, optimizer, epochs, model, wandb_project='simple-tts'):
     training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset)
 
     if args.no_gpus:
-        try:
-            # Disable all GPUS
-            tf.config.set_visible_devices([], 'GPU')
-            visible_devices = tf.config.get_visible_devices()
-            for device in visible_devices:
-                assert device.device_type != 'GPU'
-        except:
-            # Invalid device or cannot modify virtual devices once initialized.
-            print('Not possible to disable gpus')
-            pass
+        # Possibly this needs to be done before tf import?
+        import os
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
     callbacks = []
 
