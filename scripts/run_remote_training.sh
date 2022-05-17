@@ -12,6 +12,7 @@
 . /etc/profile
 
 set -x
+set -e
 
 PROJECT=simple-tts
 MODEL_DIR=model-path-$$
