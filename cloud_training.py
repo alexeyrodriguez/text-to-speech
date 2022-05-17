@@ -36,10 +36,11 @@ def gcloud_remote_training(args, instance_name,
         git_repo_url=gin.REQUIRED, git_branch=gin.REQUIRED, gcs_model_path=gin.REQUIRED,
         wandb_api_key=None, wandb_entity=None):
     command = [
-        'bash', os.path.basename(REMOTE_RUNNER), git_repo_url, git_branch, args.experiment, gcs_model_path
+        'bash', os.path.basename(REMOTE_RUNNER), git_repo_url, git_branch, gcs_model_path,
+        '--experiment', args.experiment
     ]
     if wandb_api_key:
-        command.extend([wandb_api_key, wandb_entity])
+        command.extend(['--wandb-api-key', wandb_api_key, '--wandb-entity', wandb_entity])
     command = ' '.join(command)
     if args.detach:
         command = f'nohup {command} 2>nohup.err.$$ >nohup.out.$$ ; tail -n 100 -f nohup.out.$$ &'

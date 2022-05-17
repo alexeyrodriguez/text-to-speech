@@ -3,10 +3,13 @@
 # Arguments:
 #  - git repo url
 #  - branch
-#  - experiment configuration file
 #  - gcs bucket where to copy model
-#  - wandb api key
-#  - wandb entity
+#  - additional trainer args
+
+GIT_REPO=$1
+BRANCH=$2
+GCS_PATH=$3
+shift 3
 
 # Get required env
 . /etc/profile
@@ -19,25 +22,20 @@ MODEL_DIR=model-path-$$
 
 if [[ ! -d $PROJECT ]]
 then
-    git clone -b $2 $1 $PROJECT
+    git clone -b $BRANCH $GIT_REPO $PROJECT
     cd $PROJECT
 else
     cd $PROJECT
     git pull
 fi
 
-if [[ ! -z "${5}" ]]
-then
-  EXTRA_ARGS="--wandb-api-key $5 --wandb-entity $6"
-fi
-
 # put the below stuff into requirements
 pip install gin-config wandb
 
 mkdir -p $MODEL_DIR
-python training.py --experiment $3 --model-dir $MODEL_DIR $EXTRA_ARGS
+python training.py --model-dir $MODEL_DIR "$@"
 
-gsutil -m cp -r $MODEL_DIR/* $4
+gsutil -m cp -r $MODEL_DIR/* "$GCS_PATH"
 
 # Clean up model dir
 mkdir -p models
