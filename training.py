@@ -20,6 +20,7 @@ parser.add_argument('--experiment', action = 'store', type = str, help = 'Experi
 parser.add_argument('--model-dir', action = 'store', type = str, help = 'Directory where models are saved', default='models')
 parser.add_argument('--wandb-api-key', action = 'store', type = str, help = 'Wandb API key')
 parser.add_argument('--wandb-entity', action = 'store', type = str, help = 'Wandb entity')
+parser.add_argument('--no-gpus', action='store_true', help = 'Disable GPUs (debugging or benchmarking)')
 
 
 
@@ -50,6 +51,18 @@ def adapt_dataset(spectrogram, mel_spec, emb_transcription):
 @gin.configurable
 def train(args, optimizer, epochs, model, wandb_project='simple-tts'):
     training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset)
+
+    if args.no_gpus:
+        try:
+            # Disable all GPUS
+            tf.config.set_visible_devices([], 'GPU')
+            visible_devices = tf.config.get_visible_devices()
+            for device in visible_devices:
+                assert device.device_type != 'GPU'
+        except:
+            # Invalid device or cannot modify virtual devices once initialized.
+            print('Not possible to disable gpus')
+            pass
 
     callbacks = []
 
