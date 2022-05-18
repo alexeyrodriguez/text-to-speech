@@ -49,9 +49,9 @@ class NaiveLstmTTS():
         decoder_outputs, decoder_states = decoder_lstm(decoder_inputs, initial_state=[encoder_state]*num_layers)
         decoder_outputs = decoder_dense(decoder_outputs)
 
-        spec_decoder_lstm = keras.layers.LSTM(latent_dims, return_sequences=True, return_state=False)
+        spec_decoder_lstm = LstmSeq(latent_dims, num_layers)
         spec_decoder_dense = keras.layers.Dense(spec_bins, name='spec_dense')
-        spec_decoder_outputs = spec_decoder_dense(spec_decoder_lstm(decoder_outputs))
+        spec_decoder_outputs = spec_decoder_dense(spec_decoder_lstm(decoder_outputs)[0])
 
         self.model = keras.Model(
             [encoder_inputs, decoder_inputs], [decoder_outputs, spec_decoder_outputs], name='naive_lstm'
@@ -75,7 +75,7 @@ class NaiveLstmTTS():
 
         # and also rewire the spectrogram decoder
         spec_decoder_inputs = [keras.Input(shape=(None, None), dtype='float32')]
-        spec_decoder_outputs = spec_decoder_dense(spec_decoder_lstm(spec_decoder_inputs))
+        spec_decoder_outputs = spec_decoder_dense(spec_decoder_lstm(spec_decoder_inputs)[0])
         self.spec_decoder_model = keras.Model(spec_decoder_inputs, spec_decoder_outputs)
 
     def decode(self, encoder_inputs, num_frames):
