@@ -65,7 +65,7 @@ def train(args, optimizer, epochs, model, wandb_project='simple-tts'):
         wandb.init(entity=args.wandb_entity, project=wandb_project)
         callbacks.append(WandbCallback(log_weights=True))
 
-    model = models.NaiveLstmTTS().model
+    model = model.model
     model.summary()
     model.compile(optimizer=optimizer, loss='mean_absolute_error')
 
