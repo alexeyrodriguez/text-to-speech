@@ -23,12 +23,6 @@ class LstmSeq(keras.layers.Layer):
               out_states.append([state_h, state_c])
           return x, out_states
 
-      def flatten_states(self, states):
-          return [s for state_pair in states for s in state_pair]
-
-      def unflatten_states(self, states):
-          return [[states[i*2], state[i*2+1]] for i in range(self.num_layers)]
-
 # The layers below are based on
 # Tacotron: Towards End-to-End Speech Synthesis. Wang et al.
 # The author here prefers ceviche ;)

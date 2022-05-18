@@ -12,64 +12,41 @@ class NaiveLstmTTS():
         self.num_layers = num_layers
 
         encoder_inputs = keras.Input(shape=(None,), dtype='int64', name='encoder_inputs')
-        encoder_emb_layer = keras.layers.Embedding(input_dim=(1+prepare_data.num_characters), output_dim=latent_dims)
-        encoder_lstm = LstmSeq(latent_dims, num_layers)
+        self.encoder_emb_layer = keras.layers.Embedding(input_dim=(1+prepare_data.num_characters), output_dim=latent_dims)
+        self.encoder_lstm = LstmSeq(latent_dims, num_layers)
 
-        _, encoder_states = encoder_lstm(encoder_emb_layer(encoder_inputs))
+        _, encoder_states = self.encoder_lstm(self.encoder_emb_layer(encoder_inputs))
         encoder_state = encoder_states[-1] # last layer states
 
         decoder_inputs = keras.Input(shape=(None, mel_bins), dtype='float32', name='decoder_inputs')
-        decoder_lstm = LstmSeq(latent_dims, num_layers)
-        self.decoder_lstm = decoder_lstm
-        decoder_dense = keras.layers.Dense(mel_bins, name='mel_dense')
-        decoder_outputs, _ = decoder_lstm(decoder_inputs, initial_state=[encoder_state]*num_layers)
-        decoder_outputs = decoder_dense(decoder_outputs)
+        self.decoder_lstm = LstmSeq(latent_dims, num_layers)
+        self.decoder_dense = keras.layers.Dense(mel_bins, name='mel_dense')
+        decoder_outputs, _ = self.decoder_lstm(decoder_inputs, initial_state=[encoder_state]*num_layers)
+        decoder_outputs = self.decoder_dense(decoder_outputs)
 
-        spec_decoder_lstm = LstmSeq(latent_dims, num_layers)
-        spec_decoder_dense = keras.layers.Dense(spec_bins, name='spec_dense')
-        spec_decoder_outputs = spec_decoder_dense(spec_decoder_lstm(decoder_outputs)[0])
+        self.spec_decoder_lstm = LstmSeq(latent_dims, num_layers)
+        self.spec_decoder_dense = keras.layers.Dense(spec_bins, name='spec_dense')
+        spec_decoder_outputs = self.spec_decoder_dense(self.spec_decoder_lstm(decoder_outputs)[0])
 
         self.model = keras.Model(
             [encoder_inputs, decoder_inputs], [decoder_outputs, spec_decoder_outputs], name='naive_lstm'
         )
 
-        # Now each of the component models for inference
-        self.encoder_model = keras.Model(encoder_inputs, encoder_state, name='naive_lstm_encoder')
-
-        # ugh, for decoding we need to rewire the LSTM
-        decoder_state_inputs = [[
-            keras.Input(shape=(None,), dtype='float32'),
-            keras.Input(shape=(None,), dtype='float32')
-        ] for _ in range(num_layers)]
-        decoder_outputs, decoder_states = decoder_lstm(decoder_inputs, initial_state=decoder_state_inputs)
-        decoder_outputs = decoder_dense(decoder_outputs)
-        self.decoder_model = keras.Model(
-            [decoder_inputs] + decoder_lstm.flatten_states(decoder_state_inputs),
-            [decoder_outputs] + decoder_lstm.flatten_states(decoder_states),
-            name='naive_lstm_decoder'
-        )
-
-        # and also rewire the spectrogram decoder
-        spec_decoder_inputs = [keras.Input(shape=(None, None), dtype='float32')]
-        spec_decoder_outputs = spec_decoder_dense(spec_decoder_lstm(spec_decoder_inputs)[0])
-        self.spec_decoder_model = keras.Model(spec_decoder_inputs, spec_decoder_outputs)
-
     def decode(self, encoder_inputs, num_frames):
-        state_h, state_c = self.encoder_model.predict(encoder_inputs)
-        state = self.decoder_lstm.flatten_states([[state_h, state_c]] * self.num_layers)
+        _, encoder_states = self.encoder_lstm(self.encoder_emb_layer(encoder_inputs))
+        state = [encoder_states[-1]] * self.num_layers
 
         input_frame = tf.zeros((tf.shape(encoder_inputs)[0], 1, self.mel_bins))
         output = []
 
         for i in range(num_frames):
-            outputs = self.decoder_model.predict([input_frame] + state)
-            new_output = outputs[0]
-            state = outputs[1:]
+            new_output, state = self.decoder_lstm(input_frame, state)
+            new_output = self.decoder_dense(new_output)
             output.append(new_output)
             input_frame = new_output
 
         mel_spec = tf.concat(output, axis=1)
-        spectrogram = self.spec_decoder_model(mel_spec)
+        spectrogram = self.spec_decoder_dense(self.spec_decoder_lstm(mel_spec)[0])
         return mel_spec, spectrogram
 
     @classmethod
