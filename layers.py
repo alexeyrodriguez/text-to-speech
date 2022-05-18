@@ -83,12 +83,12 @@ class RNNAttention(keras.layers.Layer):
         self.dense3 = keras.layers.Dense(1)
     def __call__(self, inputs, attended_inputs, initial_state=None):
         x, state_h, state_c = self.lstm(inputs, initial_state=initial_state)
+        # Naive, must optimize
         half1 = tf.expand_dims(self.dense1(attended_inputs), 1) # [B, M, D] -> [B, 1, M, D]
         half2 = tf.expand_dims(self.dense1(x), 2) # [B, N, D] -> [B, N, 1, D]
         attn = tf.squeeze(self.dense3(tf.tanh(half1 + half2)), 3) # [B, N, M]
         attn = tf.keras.layers.Softmax()(attn)
         weighted = tf.matmul(attn, attended_inputs) # [B, N, D]
-        #weighted = tf.einsum('bnm,bmd->bnd', attn, attended_inputs)
         x = tf.concat([x, weighted], 2)
         return x, [state_h, state_c]
 
