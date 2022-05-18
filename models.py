@@ -63,11 +63,11 @@ class TacotronTTS():
         encoder_inputs = keras.Input(shape=(None,), dtype='int64')
         self.tacotron_encoder = TacotronEncoder(latent_dims, num_layers)
 
-        encoder_state = self.tacotron_encoder(encoder_inputs)
+        encoded_inputs = self.tacotron_encoder(encoder_inputs)
 
         decoder_inputs = keras.Input(shape=(None, mel_bins), dtype='float32')
         self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, num_layers, mel_bins)
-        decoder_outputs, _ = self.tacotron_mel_decoder(decoder_inputs, initial_state=[encoder_state]*num_layers)
+        decoder_outputs, _ = self.tacotron_mel_decoder(decoder_inputs, encoded_inputs)
 
         self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, num_layers, spec_bins)
         spec_decoder_outputs = self.tacotron_spec_decoder(decoder_outputs)
@@ -77,14 +77,14 @@ class TacotronTTS():
         )
 
     def decode(self, encoder_inputs, num_frames):
-        state_h, state_c = self.tacotron_encoder(encoder_inputs)
-        state = [[state_h, state_c]] * self.num_layers
+        encoded_inputs = self.tacotron_encoder(encoder_inputs)
+        state = None
 
         input_frame = tf.zeros((tf.shape(encoder_inputs)[0], 1, self.mel_bins))
         output = []
 
         for i in range(num_frames):
-            new_output, state = self.tacotron_mel_decoder(input_frame, state)
+            new_output, state = self.tacotron_mel_decoder(input_frame, encoded_inputs, state)
             output.append(new_output)
             input_frame = new_output
 
