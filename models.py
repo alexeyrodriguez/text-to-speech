@@ -3,7 +3,7 @@ from tensorflow import keras
 import gin
 
 import prepare_data
-from layers import LstmSeq, TacotronEncoder
+from layers import LstmSeq, TacotronEncoder, TacotronMelDecoder
 
 @gin.configurable
 class NaiveLstmTTS():
@@ -22,7 +22,7 @@ class NaiveLstmTTS():
         decoder_lstm = LstmSeq(latent_dims, num_layers)
         self.decoder_lstm = decoder_lstm
         decoder_dense = keras.layers.Dense(mel_bins, name='mel_dense')
-        decoder_outputs, decoder_states = decoder_lstm(decoder_inputs, initial_state=[encoder_state]*num_layers)
+        decoder_outputs, _ = decoder_lstm(decoder_inputs, initial_state=[encoder_state]*num_layers)
         decoder_outputs = decoder_dense(decoder_outputs)
 
         spec_decoder_lstm = LstmSeq(latent_dims, num_layers)
@@ -83,40 +83,35 @@ class TacotronTTS():
         self.mel_bins = mel_bins
         self.num_layers = num_layers
 
-        encoder_inputs = keras.Input(shape=(None,), dtype='int64', name='encoder_inputs')
+        encoder_inputs = keras.Input(shape=(None,), dtype='int64')
         self.tacotron_encoder = TacotronEncoder(latent_dims, num_layers)
 
         encoder_state = self.tacotron_encoder(encoder_inputs)
 
-        decoder_inputs = keras.Input(shape=(None, mel_bins), dtype='float32', name='decoder_inputs')
-        decoder_lstm = LstmSeq(latent_dims, num_layers)
-        self.decoder_lstm = decoder_lstm
-        decoder_dense = keras.layers.Dense(mel_bins, name='mel_dense')
-        decoder_outputs, decoder_states = decoder_lstm(decoder_inputs, initial_state=[encoder_state]*num_layers)
-        decoder_outputs = decoder_dense(decoder_outputs)
+        decoder_inputs = keras.Input(shape=(None, mel_bins), dtype='float32')
+        self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, num_layers, mel_bins)
+        decoder_outputs, _ = self.tacotron_mel_decoder(decoder_inputs, initial_state=[encoder_state]*num_layers)
 
         spec_decoder_lstm = LstmSeq(latent_dims, num_layers)
-        spec_decoder_dense = keras.layers.Dense(spec_bins, name='spec_dense')
+        spec_decoder_dense = keras.layers.Dense(spec_bins)
         spec_decoder_outputs = spec_decoder_dense(spec_decoder_lstm(decoder_outputs)[0])
 
         self.model = keras.Model(
-            [encoder_inputs, decoder_inputs], [decoder_outputs, spec_decoder_outputs], name='naive_lstm'
+            [encoder_inputs, decoder_inputs], [decoder_outputs, spec_decoder_outputs]
         )
 
         # Now each of the component models for inference
-        self.encoder_model = keras.Model(encoder_inputs, encoder_state, name='naive_lstm_encoder')
+        self.encoder_model = keras.Model(encoder_inputs, encoder_state)
 
         # ugh, for decoding we need to rewire the LSTM
         decoder_state_inputs = [[
             keras.Input(shape=(None,), dtype='float32'),
             keras.Input(shape=(None,), dtype='float32')
         ] for _ in range(num_layers)]
-        decoder_outputs, decoder_states = decoder_lstm(decoder_inputs, initial_state=decoder_state_inputs)
-        decoder_outputs = decoder_dense(decoder_outputs)
+        decoder_outputs, decoder_states = self.tacotron_mel_decoder(decoder_inputs, initial_state=decoder_state_inputs)
         self.decoder_model = keras.Model(
-            [decoder_inputs] + decoder_lstm.flatten_states(decoder_state_inputs),
-            [decoder_outputs] + decoder_lstm.flatten_states(decoder_states),
-            name='naive_lstm_decoder'
+            [decoder_inputs] + self.tacotron_mel_decoder.lstm_decoder.flatten_states(decoder_state_inputs),
+            [decoder_outputs] + self.tacotron_mel_decoder.lstm_decoder.flatten_states(decoder_states),
         )
 
         # and also rewire the spectrogram decoder
@@ -126,7 +121,7 @@ class TacotronTTS():
 
     def decode(self, encoder_inputs, num_frames):
         state_h, state_c = self.encoder_model.predict(encoder_inputs)
-        state = self.decoder_lstm.flatten_states([[state_h, state_c]] * self.num_layers)
+        state = self.tacotron_mel_decoder.lstm_decoder.flatten_states([[state_h, state_c]] * self.num_layers)
 
         input_frame = tf.zeros((tf.shape(encoder_inputs)[0], 1, self.mel_bins))
         output = []

@@ -44,8 +44,21 @@ class TacotronEncoder(keras.layers.Layer):
             keras.layers.Dropout(0.5),
         ])
         self.lstm_encoder = LstmSeq(latent_dims, num_layers)
-    def __call__(self, inputs):
+    def __call__(self, inputs, training=None):
         x = self.embeddings(inputs)
-        x = self.pre_net(x)
+        x = self.pre_net(x, training=training)
         _, states = self.lstm_encoder(x)
         return states[-1]
+
+
+class TacotronMelDecoder(keras.layers.Layer):
+    def __init__(self, latent_dims, num_layers, mel_bins):
+        self.latent_dims = latent_dims
+        self.num_layers = num_layers
+        self.mel_bins = mel_bins
+        self.lstm_decoder = LstmSeq(latent_dims, num_layers)
+        self.dense = keras.layers.Dense(mel_bins)
+    def __call__(self, inputs, initial_state=None):
+        x, state = self.lstm_decoder(inputs, initial_state=initial_state)
+        x = self.dense(x)
+        return x, state

@@ -10,11 +10,13 @@ parser.add_argument('--wandb-api-key', action = 'store', type = str, help = 'Wan
 parser.add_argument('--wandb-entity', action = 'store', type = str, help = 'Wandb entity')
 parser.add_argument('--no-gpus', action='store_true', help = 'Disable GPUs (debugging or benchmarking)')
 
-args = parser.parse_args()
+if __name__=='__main__':
+    # ugh super ugly
+    args = parser.parse_args()
 
-if args.no_gpus:
-    # Possibly this needs to be done before tf import?
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    if args.no_gpus:
+        # Possibly this needs to be done before tf import?
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import tensorflow as tf
 import tensorflow.keras as keras
