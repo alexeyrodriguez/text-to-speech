@@ -62,3 +62,15 @@ class TacotronMelDecoder(keras.layers.Layer):
         x, state = self.lstm_decoder(inputs, initial_state=initial_state)
         x = self.dense(x)
         return x, state
+
+class TacotronSpecDecoder(keras.layers.Layer):
+    def __init__(self, latent_dims, num_layers, spec_bins):
+        self.latent_dims = latent_dims
+        self.num_layers = num_layers
+        self.spec_bins = spec_bins
+        self.lstm_decoder = LstmSeq(latent_dims, num_layers)
+        self.dense = keras.layers.Dense(spec_bins)
+    def __call__(self, inputs):
+        x, _ = self.lstm_decoder(inputs)
+        x = self.dense(x)
+        return x
