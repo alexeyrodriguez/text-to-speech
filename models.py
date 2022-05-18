@@ -3,7 +3,7 @@ from tensorflow import keras
 import gin
 
 import prepare_data
-from layers import LstmSeq
+from layers import LstmSeq, TacotronEncoder
 
 @gin.configurable
 class NaiveLstmTTS():
@@ -84,11 +84,9 @@ class TacotronTTS():
         self.num_layers = num_layers
 
         encoder_inputs = keras.Input(shape=(None,), dtype='int64', name='encoder_inputs')
-        encoder_emb_layer = keras.layers.Embedding(input_dim=(1+prepare_data.num_characters), output_dim=latent_dims)
-        encoder_lstm = LstmSeq(latent_dims, num_layers)
+        self.tacotron_encoder = TacotronEncoder(latent_dims, num_layers)
 
-        _, encoder_states = encoder_lstm(encoder_emb_layer(encoder_inputs))
-        encoder_state = encoder_states[-1] # last layer states
+        encoder_state = self.tacotron_encoder(encoder_inputs)
 
         decoder_inputs = keras.Input(shape=(None, mel_bins), dtype='float32', name='decoder_inputs')
         decoder_lstm = LstmSeq(latent_dims, num_layers)
