@@ -51,12 +51,12 @@ class TacotronMelDecoder(keras.layers.Layer):
         self.latent_dims = latent_dims
         self.num_layers = num_layers
         self.mel_bins = mel_bins
-        self.rnn_attention = RNNAttention(latent_dims)
+        self.rnn_attention = RNNAttentionNaive(latent_dims)
         self.dense = keras.layers.Dense(mel_bins)
     def __call__(self, inputs, attended_inputs, initial_state=None):
-        x, state = self.rnn_attention(inputs, attended_inputs, initial_state=initial_state)
-        x = self.dense(x)
-        return x, state
+        outputs = self.rnn_attention(inputs, attended_inputs, initial_state=initial_state)
+        x = self.dense(outputs[0])
+        return x, outputs[1:]
 
 class TacotronSpecDecoder(keras.layers.Layer):
     def __init__(self, latent_dims, num_layers, spec_bins):
@@ -70,12 +70,16 @@ class TacotronSpecDecoder(keras.layers.Layer):
         x = self.dense(x)
         return x
 
-class RNNAttention(keras.layers.Layer):
+# The two attention classes below are incorrect,
+# the attended input should affect the RNN generating queries.
+
+class RNNAttentionNaive(keras.layers.Layer):
     '''
     As per Grammar as a Foreign Language, Vinyals et al.
+    First attempt, naive
     '''
     def __init__(self, latent_dims):
-        super(RNNAttention, self).__init__()
+        super(RNNAttentionNaive, self).__init__()
         self.latent_dims = latent_dims
         self.lstm = keras.layers.LSTM(latent_dims, return_sequences=True, return_state=True)
         self.dense1 = keras.layers.Dense(latent_dims)
@@ -91,4 +95,43 @@ class RNNAttention(keras.layers.Layer):
         weighted = tf.matmul(attn, attended_inputs) # [B, N, D]
         x = tf.concat([x, weighted], 2)
         return x, [state_h, state_c]
+
+class RNNAttention(keras.layers.Layer):
+    '''
+    As per Grammar as a Foreign Language, Vinyals et al.
+    Second attempt (probably it will drop some GPU optimizations)
+    The attention is calculated in every cell step, for this we have
+    to inject the attended-to input into the cell.
+    '''
+    def __init__(self, latent_dims):
+        super(RNNAttention, self).__init__()
+        self.latent_dims = latent_dims
+        self.rnn_cell = RNNAttentionCell(latent_dims)
+        self.rnn = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
+        self.key_dense = keras.layers.Dense(latent_dims)
+    def call(self, inputs, attended_inputs, initial_state=None):
+        self.rnn_cell.injected_attended_inputs = attended_inputs
+        self.rnn_cell.injected_keys = self.key_dense(attended_inputs)
+        out = self.rnn(inputs, initial_state=initial_state)
+        # clearing to avoid model saving issues
+        self.rnn_cell.injected_attended_inputs = tf.constant([[[0.0]]])
+        self.rnn_cell.injected_keys = tf.constant([[[0.0]]])
+        return out
+
+class RNNAttentionCell(tf.keras.layers.LSTMCell):
+    def __init__(self, units, **kwargs):
+        super(RNNAttentionCell, self).__init__(units, **kwargs)
+        self.query_dense = keras.layers.Dense(units)
+        self.attention_dense = keras.layers.Dense(1)
+    def call(self, inputs, states, training=None):
+        x, states = super(RNNAttentionCell, self).call(inputs, states, training=training)
+        query = tf.expand_dims(self.query_dense(x), 1) # [B, 1, D]
+        attn = tf.tanh(self.injected_keys + query) # [B, M, D]
+        attn = tf.squeeze(self.attention_dense(attn), 2) # [B, M]
+        attn = tf.keras.layers.Softmax()(attn)
+        #weighted_attended_inputs = tf.tensordot(attn, self.injected_attended_inputs, 1) # [B, D]
+        weighted_attended_inputs = tf.einsum('bm,bmd->bd', attn, self.injected_attended_inputs) # [B, D]
+        # tf.debugging.Assert(1==2, [weighted_attended_inputs])
+        x = tf.concat([x, weighted_attended_inputs], 1) # [B, 2*D]
+        return x, states
 
