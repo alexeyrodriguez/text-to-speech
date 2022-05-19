@@ -129,9 +129,7 @@ class RNNAttentionCell(tf.keras.layers.LSTMCell):
         attn = tf.tanh(self.injected_keys + query) # [B, M, D]
         attn = tf.squeeze(self.attention_dense(attn), 2) # [B, M]
         attn = tf.keras.layers.Softmax()(attn)
-        #weighted_attended_inputs = tf.tensordot(attn, self.injected_attended_inputs, 1) # [B, D]
         weighted_attended_inputs = tf.einsum('bm,bmd->bd', attn, self.injected_attended_inputs) # [B, D]
-        # tf.debugging.Assert(1==2, [weighted_attended_inputs])
         x = tf.concat([x, weighted_attended_inputs], 1) # [B, 2*D]
         return x, states
 
