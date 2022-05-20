@@ -60,7 +60,6 @@ def adapt_dataset(spectrogram, mel_spec, emb_transcription):
 def train_step(optimizer, mae, model, batch, inputs, outputs):
     inputs, mel_inputs = inputs
     mel_outputs, spec_outputs = outputs
-    batch_loss = 0
     with tf.GradientTape() as tape:
         pred_mel_outputs, pred_spec_outputs = model([inputs, mel_inputs])
         batch_loss = mae(mel_outputs, pred_mel_outputs) + mae(spec_outputs, pred_spec_outputs)
@@ -106,20 +105,21 @@ def train(args, optimizer, epochs, model, batch_report=gin.REQUIRED, wandb_proje
 
         print(f'Epoch {epoch}, loss={np.array(losses).mean()}, val_loss={np.array(val_losses).mean()}')
 
+        if args.wandb_api_key:
+            wandb.log({'loss': np.array(losses).mean(), 'val_loss': np.array(val_losses).mean()})
+
     experiment_name = os.path.splitext(os.path.basename(args.experiment))[0]
     model_name = gin.query_parameter('train.model').selector
     model_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}_{experiment_name}__{model_name}'
 
-#     if args.wandb_api_key:
-#         wandb.config.update({'model_name': model_name, 'experiment_name': experiment_name})
-#         wandb.config.update(generate_gin_config_dict())
-#         wandb.finish()
+    if args.wandb_api_key:
+        wandb.config.update({'model_name': model_name, 'experiment_name': experiment_name})
+        wandb.config.update(generate_gin_config_dict())
+        wandb.finish()
 
     model_name = f'{args.model_dir}/{model_name}'
     print(f'Writing model to disk under {model_name}')
     model.save_weights(model_name)
-
-
 
 def generate_gin_config_dict():
     '''
