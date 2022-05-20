@@ -14,7 +14,7 @@ class LstmSeq(keras.layers.Layer):
               for i in range(num_layers)
           ]
 
-      def __call__(self, inputs, initial_state=None):
+      def call(self, inputs, initial_state=None):
           x = inputs
           if initial_state is None:
                initial_state = [None] * self.num_layers
@@ -40,7 +40,7 @@ class TacotronEncoder(keras.layers.Layer):
             keras.layers.Dropout(0.5),
         ])
         self.lstm_encoder = LstmSeq(latent_dims, num_layers)
-    def __call__(self, inputs, training=None):
+    def call(self, inputs, training=None):
         x = self.embeddings(inputs)
         x = self.pre_net(x, training=training)
         x, _ = self.lstm_encoder(x)
