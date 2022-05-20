@@ -21,6 +21,7 @@ if __name__=='__main__':
 import tensorflow as tf
 import tensorflow.keras as keras
 import pandas as pd
+import numpy as np
 import tensorflow_datasets as tfds
 from functools import partial
 import gin
@@ -56,8 +57,27 @@ def adapt_dataset(spectrogram, mel_spec, emb_transcription):
     out_mel_spec = mel_spec
     return (emb_transcription, in_mel_spec), (out_mel_spec, spectrogram)
 
+def train_step(optimizer, mae, model, batch, inputs, outputs):
+    inputs, mel_inputs = inputs
+    mel_outputs, spec_outputs = outputs
+    batch_loss = 0
+    with tf.GradientTape() as tape:
+        pred_mel_outputs, pred_spec_outputs = model([inputs, mel_inputs])
+        batch_loss = mae(mel_outputs, pred_mel_outputs) + mae(spec_outputs, pred_spec_outputs)
+
+    variables = model.trainable_variables
+    gradients = tape.gradient(batch_loss, variables)
+    optimizer.apply_gradients(zip(gradients, variables))
+    return batch_loss
+
+def eval_step(optimizer, mae, model, batch, inputs, outputs):
+    inputs, mel_inputs = inputs
+    mel_outputs, spec_outputs = outputs
+    pred_mel_outputs, pred_spec_outputs = model([inputs, mel_inputs])
+    return mae(mel_outputs, pred_mel_outputs) + mae(spec_outputs, pred_spec_outputs)
+
 @gin.configurable
-def train(args, optimizer, epochs, model, wandb_project='simple-tts'):
+def train(args, optimizer, epochs, model, batch_report=gin.REQUIRED, wandb_project='simple-tts'):
     training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset)
 
     callbacks = []
@@ -67,31 +87,37 @@ def train(args, optimizer, epochs, model, wandb_project='simple-tts'):
         wandb.init(entity=args.wandb_entity, project=wandb_project)
         callbacks.append(WandbCallback(log_weights=True))
 
-    model = model.model
-    model.summary()
-    model.compile(optimizer=optimizer, loss='mean_absolute_error')
+    mae = tf.keras.losses.MeanAbsoluteError()
 
-    # Create a TensorBoard callback
-#     logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
-#
-#     tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
-#                                                      histogram_freq = 1,
-#                                                      profile_batch = (0,10))
+    for epoch in range(epochs):
+        print(f'Starting Epoch {epoch}')
 
-    model.fit(training_dataset, epochs=epochs, validation_data=validation_dataset, callbacks=callbacks)
+        losses = []
+        for (batch, (inputs, outputs)) in enumerate(training_dataset):
+            batch_loss = train_step(optimizer, mae, model, batch, inputs, outputs)
+            losses.append(batch_loss)
+            if batch % batch_report == 0:
+                print(f'Batch {batch}, loss={batch_loss}')
+
+        val_losses = []
+        for (batch, (inputs, outputs)) in enumerate(validation_dataset):
+            batch_loss = eval_step(optimizer, mae, model, batch, inputs, outputs)
+            val_losses.append(batch_loss)
+
+        print(f'Epoch {epoch}, loss={np.array(losses).mean()}, val_loss={np.array(val_losses).mean()}')
 
     experiment_name = os.path.splitext(os.path.basename(args.experiment))[0]
     model_name = gin.query_parameter('train.model').selector
     model_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}_{experiment_name}__{model_name}'
 
-    if args.wandb_api_key:
-        wandb.config.update({'model_name': model_name, 'experiment_name': experiment_name})
-        wandb.config.update(generate_gin_config_dict())
-        wandb.finish()
+#     if args.wandb_api_key:
+#         wandb.config.update({'model_name': model_name, 'experiment_name': experiment_name})
+#         wandb.config.update(generate_gin_config_dict())
+#         wandb.finish()
 
     model_name = f'{args.model_dir}/{model_name}'
     print(f'Writing model to disk under {model_name}')
-    model.save(model_name)
+    model.save_weights(model_name)
 
 
 

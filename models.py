@@ -49,50 +49,41 @@ class NaiveLstmTTS():
         spectrogram = self.spec_decoder_dense(self.spec_decoder_lstm(mel_spec)[0])
         return mel_spec, spectrogram
 
-    @classmethod
-    def load_model(cls, file_name):
-        loaded_model = keras.models.load_model(file_name)
-        model = cls()
-
 @gin.configurable
-class TacotronTTS():
-    def __init__(self, latent_dims, mel_bins, spec_bins, num_layers):
+class TacotronTTS(tf.keras.Model):
+    def __init__(self, latent_dims, mel_bins, spec_bins, num_layers, batch_size, max_length_input):
+        super().__init__()
+        self.latent_dims = latent_dims
         self.mel_bins = mel_bins
+        self.spec_bins = spec_bins
         self.num_layers = num_layers
-
-        encoder_inputs = keras.Input(shape=(None,), dtype='int64')
+        self.batch_size = batch_size
+        self.max_length_input = max_length_input
         self.tacotron_encoder = TacotronEncoder(latent_dims, num_layers)
-
-        encoded_inputs = self.tacotron_encoder(encoder_inputs)
-
-        decoder_inputs = keras.Input(shape=(None, mel_bins), dtype='float32')
-        self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, num_layers, mel_bins)
-        decoder_outputs, _ = self.tacotron_mel_decoder(decoder_inputs, encoded_inputs)
-
+        self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, num_layers, mel_bins, batch_size, max_length_input)
         self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, num_layers, spec_bins)
-        spec_decoder_outputs = self.tacotron_spec_decoder(decoder_outputs)
 
-        self.model = keras.Model(
-            [encoder_inputs, decoder_inputs], [decoder_outputs, spec_decoder_outputs]
-        )
+    def call(self, inputs):
+        inputs, mel_inputs = inputs
+        enc_output = self.tacotron_encoder(inputs)
+        self.tacotron_mel_decoder.attention_mechanism.setup_memory(enc_output)
+        mel_outputs, _ = self.tacotron_mel_decoder(mel_inputs)
+        spec_outputs = self.tacotron_spec_decoder(mel_outputs)
+        return mel_outputs, spec_outputs
 
     def decode(self, encoder_inputs, num_frames):
         encoded_inputs = self.tacotron_encoder(encoder_inputs)
         state = None
+        self.tacotron_mel_decoder.attention_mechanism.setup_memory(encoded_inputs)
 
         input_frame = tf.zeros((tf.shape(encoder_inputs)[0], 1, self.mel_bins))
         output = []
 
         for i in range(num_frames):
-            new_output, state = self.tacotron_mel_decoder(input_frame, encoded_inputs, state)
+            new_output, state = self.tacotron_mel_decoder(input_frame, state)
             output.append(new_output)
             input_frame = new_output
 
         mel_spec = tf.concat(output, axis=1)
         spectrogram = self.tacotron_spec_decoder(mel_spec)
         return mel_spec, spectrogram
-
-    @classmethod
-    def load_model(cls, file_name):
-        loaded_model = keras.models.load_model(file_name)
-        model = cls()

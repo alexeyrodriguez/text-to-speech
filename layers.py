@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensorflow_addons as tfa
 from tensorflow import keras
 import gin
 
@@ -46,26 +47,51 @@ class TacotronEncoder(keras.layers.Layer):
         return x
 
 
-class TacotronMelDecoder(keras.layers.Layer):
+class TacotronMelDecoderRNN(keras.layers.Layer):
     def __init__(self, latent_dims, num_layers, mel_bins):
+        super(TacotronMelDecoderRNN, self).__init__()
         self.latent_dims = latent_dims
         self.num_layers = num_layers
         self.mel_bins = mel_bins
         self.rnn_attention = RNNAttentionNaive(latent_dims)
         self.dense = keras.layers.Dense(mel_bins)
-    def __call__(self, inputs, attended_inputs, initial_state=None):
+    def call(self, inputs, attended_inputs, initial_state=None):
         outputs = self.rnn_attention(inputs, attended_inputs, initial_state=initial_state)
         x = self.dense(outputs[0])
         return x, outputs[1:]
 
+class TacotronMelDecoder(keras.layers.Layer):
+    def __init__(self, latent_dims, num_layers, mel_bins, batch_size, max_length_input):
+        super(TacotronMelDecoder, self).__init__()
+        self.latent_dims = latent_dims
+        self.num_layers = num_layers
+        self.mel_bins = mel_bins
+
+        self.decoder_rnn_cell = tf.keras.layers.LSTMCell(latent_dims)
+        self.attention_mechanism = tfa.seq2seq.BahdanauAttention(
+            units=latent_dims, memory=None, memory_sequence_length=batch_size * max_length_input
+        )
+        self.rnn_cell = tfa.seq2seq.AttentionWrapper(
+            self.decoder_rnn_cell, self.attention_mechanism, attention_layer_size=latent_dims
+        )
+        self.decoder = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
+        self.dense = keras.layers.Dense(mel_bins)
+
+    def call(self, inputs, initial_state=None):
+        outputs = self.decoder(inputs, initial_state=initial_state)
+        x = self.dense(outputs[0])
+        return x, outputs[1:]
+
+
 class TacotronSpecDecoder(keras.layers.Layer):
     def __init__(self, latent_dims, num_layers, spec_bins):
+        super(TacotronSpecDecoder, self).__init__()
         self.latent_dims = latent_dims
         self.num_layers = num_layers
         self.spec_bins = spec_bins
         self.lstm_decoder = LstmSeq(latent_dims, num_layers)
         self.dense = keras.layers.Dense(spec_bins)
-    def __call__(self, inputs):
+    def call(self, inputs):
         x, _ = self.lstm_decoder(inputs)
         x = self.dense(x)
         return x
