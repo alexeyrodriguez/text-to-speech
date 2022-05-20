@@ -8,6 +8,7 @@ datasets.secs_threshold = 4.0
 train.optimizer = @tf.keras.optimizers.Adam()
 train.epochs = 2
 train.model = @NaiveLstmTTS()
+train.batch_report = 8
 
 tf.keras.optimizers.Adam.learning_rate = 1e-4
 
@@ -15,4 +16,3 @@ NaiveLstmTTS.latent_dims = 64
 NaiveLstmTTS.mel_bins = %mel_bins
 NaiveLstmTTS.spec_bins = %spec_bins
 NaiveLstmTTS.num_layers = 2
-
