@@ -55,10 +55,14 @@ class TacotronMelDecoderRNN(keras.layers.Layer):
         self.mel_bins = mel_bins
         self.rnn_attention = RNNAttentionNaive(latent_dims)
         self.dense = keras.layers.Dense(mel_bins)
-    def call(self, inputs, attended_inputs, initial_state=None):
-        outputs = self.rnn_attention(inputs, attended_inputs, initial_state=initial_state)
+
+    def call(self, inputs, initial_state=None):
+        outputs = self.rnn_attention(inputs, initial_state=initial_state)
         x = self.dense(outputs[0])
         return x, outputs[1:]
+
+    def setup_attended(self, attended_inputs):
+        self.rnn_attention.setup_attended(attended_inputs)
 
 class TacotronMelDecoder(keras.layers.Layer):
     def __init__(self, latent_dims, num_layers, mel_bins, batch_size, max_length_input):
@@ -81,6 +85,9 @@ class TacotronMelDecoder(keras.layers.Layer):
         outputs = self.decoder(inputs, initial_state=initial_state)
         x = self.dense(outputs[0])
         return x, outputs[1:]
+
+    def setup_attended(self, attended_inputs):
+        self.attention_mechanism.setup_memory(attended_inputs)
 
 
 class TacotronSpecDecoder(keras.layers.Layer):
@@ -111,14 +118,17 @@ class RNNAttentionNaive(keras.layers.Layer):
         self.dense1 = keras.layers.Dense(latent_dims)
         self.dense2 = keras.layers.Dense(latent_dims)
         self.dense3 = keras.layers.Dense(1)
-    def __call__(self, inputs, attended_inputs, initial_state=None):
+    def setup_attended(self, attended_inputs):
+        self.injected_attended_inputs = attended_inputs
+        self.injected_keys = self.dense1(attended_inputs)
+    def call(self, inputs, initial_state=None):
         x, state_h, state_c = self.lstm(inputs, initial_state=initial_state)
         # Naive, must optimize
-        half1 = tf.expand_dims(self.dense1(attended_inputs), 1) # [B, M, D] -> [B, 1, M, D]
-        half2 = tf.expand_dims(self.dense1(x), 2) # [B, N, D] -> [B, N, 1, D]
+        half1 = tf.expand_dims(self.injected_keys, 1) # [B, M, D] -> [B, 1, M, D]
+        half2 = tf.expand_dims(self.dense2(x), 2) # [B, N, D] -> [B, N, 1, D]
         attn = tf.squeeze(self.dense3(tf.tanh(half1 + half2)), 3) # [B, N, M]
         attn = tf.keras.layers.Softmax()(attn)
-        weighted = tf.matmul(attn, attended_inputs) # [B, N, D]
+        weighted = tf.matmul(attn, self.injected_attended_inputs) # [B, N, D]
         x = tf.concat([x, weighted], 2)
         return x, [state_h, state_c]
 
@@ -135,13 +145,11 @@ class RNNAttention(keras.layers.Layer):
         self.rnn_cell = RNNAttentionCell(latent_dims)
         self.rnn = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
         self.key_dense = keras.layers.Dense(latent_dims)
-    def call(self, inputs, attended_inputs, initial_state=None):
+    def setup_attended(self, attended_inputs):
         self.rnn_cell.injected_attended_inputs = attended_inputs
         self.rnn_cell.injected_keys = self.key_dense(attended_inputs)
+    def call(self, inputs, initial_state=None):
         out = self.rnn(inputs, initial_state=initial_state)
-        # clearing to avoid model saving issues
-        self.rnn_cell.injected_attended_inputs = tf.constant([[[0.0]]])
-        self.rnn_cell.injected_keys = tf.constant([[[0.0]]])
         return out
 
 class RNNAttentionCell(tf.keras.layers.LSTMCell):

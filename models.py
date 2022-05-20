@@ -3,7 +3,7 @@ from tensorflow import keras
 import gin
 
 import prepare_data
-from layers import LstmSeq, TacotronEncoder, TacotronMelDecoder, TacotronSpecDecoder
+from layers import LstmSeq, TacotronEncoder, TacotronMelDecoder, TacotronSpecDecoder, TacotronMelDecoderRNN
 
 @gin.configurable
 class NaiveLstmTTS(tf.keras.Model):
@@ -58,12 +58,13 @@ class TacotronTTS(tf.keras.Model):
         self.max_length_input = max_length_input
         self.tacotron_encoder = TacotronEncoder(latent_dims, num_layers)
         self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, num_layers, mel_bins, batch_size, max_length_input)
+        #self.tacotron_mel_decoder = TacotronMelDecoderRNN(latent_dims, num_layers, mel_bins)
         self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, num_layers, spec_bins)
 
     def call(self, inputs):
         inputs, mel_inputs = inputs
         enc_output = self.tacotron_encoder(inputs)
-        self.tacotron_mel_decoder.attention_mechanism.setup_memory(enc_output)
+        self.tacotron_mel_decoder.setup_attended(enc_output)
         mel_outputs, _ = self.tacotron_mel_decoder(mel_inputs)
         spec_outputs = self.tacotron_spec_decoder(mel_outputs)
         return mel_outputs, spec_outputs
@@ -71,7 +72,7 @@ class TacotronTTS(tf.keras.Model):
     def decode(self, encoder_inputs, num_frames):
         encoded_inputs = self.tacotron_encoder(encoder_inputs)
         state = None
-        self.tacotron_mel_decoder.attention_mechanism.setup_memory(encoded_inputs)
+        self.tacotron_mel_decoder.setup_attended(encoded_inputs)
 
         input_frame = tf.zeros((tf.shape(encoder_inputs)[0], 1, self.mel_bins))
         output = []
