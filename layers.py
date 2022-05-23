@@ -108,19 +108,26 @@ class TacotronMelDecoder(keras.layers.Layer):
         self.num_layers = num_layers
         self.mel_bins = mel_bins
 
-        self.decoder_rnn_cell = tf.keras.layers.LSTMCell(latent_dims)
+        self.pre_net = keras.Sequential([
+            keras.layers.Dense(latent_dims*2, activation='relu'),
+            keras.layers.Dropout(0.5),
+            keras.layers.Dense(latent_dims, activation='relu'),
+            keras.layers.Dropout(0.5),
+        ])
+        self.decoder_rnn_cell = tf.keras.layers.LSTMCell(2*latent_dims)
         self.attention_mechanism = tfa.seq2seq.BahdanauAttention(
-            units=latent_dims, memory=None, memory_sequence_length=batch_size * max_length_input
+            units=2*latent_dims, memory=None, memory_sequence_length=batch_size * max_length_input
         )
         self.rnn_cell = tfa.seq2seq.AttentionWrapper(
-            self.decoder_rnn_cell, self.attention_mechanism, attention_layer_size=latent_dims
+            self.decoder_rnn_cell, self.attention_mechanism, attention_layer_size=2*latent_dims
         )
         self.decoder = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
-        self.dense = keras.layers.Dense(mel_bins)
+        self.proj = tf.keras.layers.Dense(mel_bins)
 
-    def call(self, inputs, initial_state=None):
-        outputs = self.decoder(inputs, initial_state=initial_state)
-        x = self.dense(outputs[0])
+    def call(self, inputs, initial_state=None, training=None):
+        x = self.pre_net(inputs, training=training)
+        outputs = self.decoder(x, initial_state=initial_state)
+        x = self.proj(outputs[0])
         return x, outputs[1:]
 
     def setup_attended(self, attended_inputs):
