@@ -28,24 +28,61 @@ class LstmSeq(keras.layers.Layer):
 # Tacotron: Towards End-to-End Speech Synthesis. Wang et al.
 # The author here prefers ceviche ;)
 
+class BatchNormConv1D(keras.layers.Conv1D):
+    def __init__(self, filters, kernel_size, **kwargs):
+        super().__init__(filters, kernel_size, **kwargs)
+        self.batch_norm = keras.layers.BatchNormalization()
+    def call(self, inputs):
+        x = super().call(inputs)
+        return self.batch_norm(x)
+
+class ConvolutionBank(keras.layers.Layer):
+    def __init__(self, latent_dims, num_banks):
+        super().__init__()
+        self.convs = [
+            BatchNormConv1D(latent_dims, i+1, padding='same', activation='relu')
+            for i in range(num_banks)
+        ]
+    def call(self, inputs):
+        outs = [
+            conv(inputs)
+            for conv in self.convs
+        ]
+        return tf.concat(outs, -1)
+
+class CBHG(keras.layers.Layer):
+    def __init__(self, latent_dims, num_banks):
+        super().__init__()
+        self.conv_bank = ConvolutionBank(latent_dims, num_banks)
+        self.pooling = keras.layers.MaxPooling1D(pool_size=2, strides=1, padding='same')
+        self.conv_proj1 = BatchNormConv1D(latent_dims, 3, padding='same', activation='relu')
+        self.conv_proj2 = BatchNormConv1D(latent_dims, 3, padding='same')
+    def call(self, inputs, training=None):
+        x = self.conv_bank(inputs)
+        x = self.pooling(x)
+        x = self.conv_proj1(x)
+        x = self.conv_proj2(x)
+        return x + inputs
+
 class TacotronEncoder(keras.layers.Layer):
     def __init__(self, latent_dims, num_layers):
-        super(TacotronEncoder, self).__init__()
+        super().__init__()
         self.latent_dims = latent_dims
-        self.embeddings = keras.layers.Embedding(input_dim=(1+prepare_data.num_characters), output_dim=latent_dims*2)
+        self.embeddings = keras.layers.Embedding(input_dim=(1+prepare_data.num_characters), output_dim=2*latent_dims)
         self.pre_net = keras.Sequential([
             keras.layers.Dense(latent_dims*2, activation='relu'),
             keras.layers.Dropout(0.5),
             keras.layers.Dense(latent_dims, activation='relu'),
             keras.layers.Dropout(0.5),
         ])
-        self.lstm_encoder = LstmSeq(latent_dims, num_layers)
+        self.cbhg = CBHG(latent_dims, 3)
+        self.rnn_encoder = keras.layers.Bidirectional(keras.layers.GRU(latent_dims, return_sequences=True, return_state=False))
     def call(self, inputs, training=None):
         x = self.embeddings(inputs)
         x = self.pre_net(x, training=training)
-        x, _ = self.lstm_encoder(x)
+        x = self.cbhg(x)
+        x = self.rnn_encoder(x)
         return x
-
 
 class TacotronMelDecoderRNN(keras.layers.Layer):
     def __init__(self, latent_dims, num_layers, mel_bins):
