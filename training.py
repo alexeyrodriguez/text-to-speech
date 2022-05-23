@@ -142,7 +142,7 @@ def train(
         wandb.finish()
 
     print(f'Writing model to disk under {model_path_name}')
-    model.save_weights(model_name)
+    model.save_weights(model_path_name)
 
 def generate_gin_config_dict():
     '''
