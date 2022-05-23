@@ -3,6 +3,7 @@ from datetime import datetime
 import argparse
 import os
 import contextlib
+import time
 
 parser = argparse.ArgumentParser(description='Training script.')
 parser.add_argument('--experiment', action = 'store', type = str, help = 'Experiment configuration', required=True)
@@ -101,13 +102,14 @@ def train(
         nonlocal step
         if profiling:
             res = tf.profiler.experimental.Trace(model_path_name, step_num=step, _r=1)
-            step += 1
             return res
         else:
             return contextlib.nullcontext()
 
     for epoch in range(epochs):
         print(f'Starting Epoch {epoch}')
+        start_step = step
+        start_time = time.time()
 
         losses = []
         for (batch, (inputs, outputs)) in enumerate(training_dataset):
@@ -116,6 +118,9 @@ def train(
                 losses.append(batch_loss)
                 if batch % batch_report == 0:
                     print(f'Batch {batch}, loss={batch_loss}')
+                step += 1
+
+        end_time = time.time()
 
         val_losses = []
         for (batch, (inputs, outputs)) in enumerate(validation_dataset):
@@ -125,9 +130,12 @@ def train(
         metrics = {
             'loss': np.array(losses).mean(),
             'val_loss': np.array(val_losses).mean(),
+            'epoch_time': end_time - start_time,
+            'step_time': (end_time - start_time) / (step - start_step),
         }
 
-        print(f'Epoch {epoch}, loss={metrics["loss"]}, val_loss={metrics["val_loss"]}')
+        print(f'Epoch {epoch}, loss={metrics["loss"]}, val_loss={metrics["val_loss"]}, ',
+              f'epoch_time={metrics["epoch_time"]}, step_time={metrics["step_time"]}')
 
         if args.wandb_api_key:
             # We only log the gradients of the last batch of the epoch
