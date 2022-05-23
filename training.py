@@ -29,9 +29,7 @@ import gin
 import prepare_data
 import models
 import wandb
-from wandb.keras import WandbCallback
-
-
+import wandb_logging
 
 def adapt_dataset(spectrogram, mel_spec, emb_transcription):
     '''
@@ -67,7 +65,7 @@ def train_step(optimizer, mae, model, batch, inputs, outputs):
     variables = model.trainable_variables
     gradients = tape.gradient(batch_loss, variables)
     optimizer.apply_gradients(zip(gradients, variables))
-    return batch_loss
+    return batch_loss, gradients
 
 def eval_step(optimizer, mae, model, batch, inputs, outputs):
     inputs, mel_inputs = inputs
@@ -84,7 +82,6 @@ def train(args, optimizer, epochs, model, batch_report=gin.REQUIRED, wandb_proje
     if args.wandb_api_key:
         wandb.login(key=args.wandb_api_key)
         wandb.init(entity=args.wandb_entity, project=wandb_project)
-        callbacks.append(WandbCallback(log_weights=True))
 
     mae = tf.keras.losses.MeanAbsoluteError()
 
@@ -93,7 +90,7 @@ def train(args, optimizer, epochs, model, batch_report=gin.REQUIRED, wandb_proje
 
         losses = []
         for (batch, (inputs, outputs)) in enumerate(training_dataset):
-            batch_loss = train_step(optimizer, mae, model, batch, inputs, outputs)
+            batch_loss, gradients = train_step(optimizer, mae, model, batch, inputs, outputs)
             losses.append(batch_loss)
             if batch % batch_report == 0:
                 print(f'Batch {batch}, loss={batch_loss}')
@@ -103,10 +100,16 @@ def train(args, optimizer, epochs, model, batch_report=gin.REQUIRED, wandb_proje
             batch_loss = eval_step(optimizer, mae, model, batch, inputs, outputs)
             val_losses.append(batch_loss)
 
-        print(f'Epoch {epoch}, loss={np.array(losses).mean()}, val_loss={np.array(val_losses).mean()}')
+        metrics = {
+            'loss': np.array(losses).mean(),
+            'val_loss': np.array(val_losses).mean(),
+        }
+
+        print(f'Epoch {epoch}, loss={metrics["loss"]}, val_loss={metrics["val_loss"]}')
 
         if args.wandb_api_key:
-            wandb.log({'loss': np.array(losses).mean(), 'val_loss': np.array(val_losses).mean()})
+            # We only log the gradients of the last batch of the epoch
+            wandb_logging.log(epoch, model, metrics, gradients)
 
     experiment_name = os.path.splitext(os.path.basename(args.experiment))[0]
     model_name = gin.query_parameter('train.model').selector
