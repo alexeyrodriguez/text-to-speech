@@ -2,6 +2,7 @@ from datetime import datetime
 
 import argparse
 import os
+import contextlib
 
 parser = argparse.ArgumentParser(description='Training script.')
 parser.add_argument('--experiment', action = 'store', type = str, help = 'Experiment configuration', required=True)
@@ -74,10 +75,16 @@ def eval_step(optimizer, mae, model, batch, inputs, outputs):
     return mae(mel_outputs, pred_mel_outputs) + mae(spec_outputs, pred_spec_outputs)
 
 @gin.configurable
-def train(args, optimizer, epochs, model, batch_report=gin.REQUIRED, wandb_project='simple-tts'):
+def train(
+        args, optimizer, epochs, model,
+        batch_report=gin.REQUIRED, profiling=None, wandb_project='simple-tts'
+    ):
     training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset)
 
-    callbacks = []
+    experiment_name = os.path.splitext(os.path.basename(args.experiment))[0]
+    model_name = gin.query_parameter('train.model').selector
+    model_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}_{experiment_name}__{model_name}'
+    model_path_name = f'{args.model_dir}/{model_name}'
 
     if args.wandb_api_key:
         wandb.login(key=args.wandb_api_key)
@@ -85,15 +92,30 @@ def train(args, optimizer, epochs, model, batch_report=gin.REQUIRED, wandb_proje
 
     mae = tf.keras.losses.MeanAbsoluteError()
 
+    if profiling:
+        tf.profiler.experimental.start(model_path_name)
+
+    step = 0
+
+    def optional_profiling():
+        nonlocal step
+        if profiling:
+            res = tf.profiler.experimental.Trace(model_path_name, step_num=step, _r=1)
+            step += 1
+            return res
+        else:
+            return contextlib.nullcontext()
+
     for epoch in range(epochs):
         print(f'Starting Epoch {epoch}')
 
         losses = []
         for (batch, (inputs, outputs)) in enumerate(training_dataset):
-            batch_loss, gradients = train_step(optimizer, mae, model, batch, inputs, outputs)
-            losses.append(batch_loss)
-            if batch % batch_report == 0:
-                print(f'Batch {batch}, loss={batch_loss}')
+            with optional_profiling():
+                batch_loss, gradients = train_step(optimizer, mae, model, batch, inputs, outputs)
+                losses.append(batch_loss)
+                if batch % batch_report == 0:
+                    print(f'Batch {batch}, loss={batch_loss}')
 
         val_losses = []
         for (batch, (inputs, outputs)) in enumerate(validation_dataset):
@@ -111,17 +133,15 @@ def train(args, optimizer, epochs, model, batch_report=gin.REQUIRED, wandb_proje
             # We only log the gradients of the last batch of the epoch
             wandb_logging.log(epoch, model, metrics, gradients)
 
-    experiment_name = os.path.splitext(os.path.basename(args.experiment))[0]
-    model_name = gin.query_parameter('train.model').selector
-    model_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}_{experiment_name}__{model_name}'
+    if profiling:
+        tf.profiler.experimental.stop()
 
     if args.wandb_api_key:
         wandb.config.update({'model_name': model_name, 'experiment_name': experiment_name})
         wandb.config.update(generate_gin_config_dict())
         wandb.finish()
 
-    model_name = f'{args.model_dir}/{model_name}'
-    print(f'Writing model to disk under {model_name}')
+    print(f'Writing model to disk under {model_path_name}')
     model.save_weights(model_name)
 
 def generate_gin_config_dict():
