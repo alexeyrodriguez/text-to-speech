@@ -75,34 +75,22 @@ def eval_step(optimizer, mae, model, batch, inputs, outputs):
     pred_mel_outputs, pred_spec_outputs = model([inputs, mel_inputs])
     return mae(mel_outputs, pred_mel_outputs) + mae(spec_outputs, pred_spec_outputs)
 
-@gin.configurable
 def train(
-        args, optimizer, epochs, model,
-        batch_report=gin.REQUIRED, profiling=None, wandb_project='simple-tts'
+        optimizer, epochs, model, batch_report, training_dataset, validation_dataset,
+        profiling=None, epoch_hook=None
     ):
-    training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset)
-
-    experiment_name = os.path.splitext(os.path.basename(args.experiment))[0]
-    model_name = gin.query_parameter('train.model').selector
-    model_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}_{experiment_name}__{model_name}'
-    model_path_name = f'{args.model_dir}/{model_name}'
-
-    if args.wandb_api_key:
-        wandb.login(key=args.wandb_api_key)
-        wandb.init(entity=args.wandb_entity, project=wandb_project)
-
-    mae = tf.keras.losses.MeanAbsoluteError()
 
     if profiling:
         tf.profiler.experimental.start(model_path_name)
 
     step = 0
 
+    mae = tf.keras.losses.MeanAbsoluteError()
+
     def optional_profiling():
         nonlocal step
         if profiling:
-            res = tf.profiler.experimental.Trace(model_path_name, step_num=step, _r=1)
-            return res
+            return tf.profiler.experimental.Trace(model_path_name, step_num=step, _r=1)
         else:
             return contextlib.nullcontext()
 
@@ -137,12 +125,38 @@ def train(
         print(f'Epoch {epoch}, loss={metrics["loss"]}, val_loss={metrics["val_loss"]}, ',
               f'epoch_time={metrics["epoch_time"]}, step_time={metrics["step_time"]}')
 
-        if args.wandb_api_key:
-            # We only log the gradients of the last batch of the epoch
-            wandb_logging.log(epoch, model, metrics, gradients)
+        if epoch_hook:
+            epoch_hook(epoch, model, metrics, gradients)
 
     if profiling:
         tf.profiler.experimental.stop()
+
+@gin.configurable
+def train_driver(
+        args, optimizer, epochs, model,
+        batch_report=gin.REQUIRED, profiling=None, wandb_project='simple-tts'
+    ):
+    training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset)
+
+    experiment_name = os.path.splitext(os.path.basename(args.experiment))[0]
+    model_name = gin.query_parameter('train_driver.model').selector
+    model_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}_{experiment_name}__{model_name}'
+    model_path_name = f'{args.model_dir}/{model_name}'
+
+    if args.wandb_api_key:
+        wandb.login(key=args.wandb_api_key)
+        wandb.init(entity=args.wandb_entity, project=wandb_project)
+
+    if args.wandb_api_key:
+        # We only log the gradients of the last batch of the epoch
+        epoch_hook = lambda epoch, model, metrics, gradients: wandb_logging.log(epoch, model, metrics, gradients)
+    else:
+        epoch_hook = None
+
+    train(
+        optimizer, epochs, model, batch_report, training_dataset, validation_dataset,
+        profiling=profiling, epoch_hook=epoch_hook
+    )
 
     if args.wandb_api_key:
         wandb.config.update({'model_name': model_name, 'experiment_name': experiment_name})
@@ -165,7 +179,7 @@ def generate_gin_config_dict():
 
 if __name__=='__main__':
     gin.parse_config_file(args.experiment)
-    train(args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED, model=gin.REQUIRED)
+    train_driver(args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED, model=gin.REQUIRED)
 
 
 

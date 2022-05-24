@@ -5,11 +5,11 @@ import gin.tf.external_configurables
 # Limit learning to samples up to 4 seconds
 datasets.secs_threshold = 4.0
 
-train.optimizer = @tf.keras.optimizers.Adam()
-train.epochs = 2
-train.model = @TacotronTTS()
-train.batch_report = 8
-# train.profiling = True
+train_driver.optimizer = @tf.keras.optimizers.Adam()
+train_driver.epochs = 2
+train_driver.model = @TacotronTTS()
+train_driver.batch_report = 8
+# train_driver.profiling = True
 
 tf.keras.optimizers.Adam.learning_rate = 1e-4
 
