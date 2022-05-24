@@ -61,7 +61,7 @@ class TacotronTTS(tf.keras.Model):
         self.tacotron_encoder = TacotronEncoder(latent_dims, num_encoder_banks)
         self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, mel_bins, batch_size, max_length_input)
         #self.tacotron_mel_decoder = TacotronMelDecoderRNN(latent_dims, num_layers, mel_bins)
-        self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, spec_bins)
+        self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, mel_bins, spec_bins, num_decoder_banks)
 
     def call(self, inputs):
         inputs, mel_inputs = inputs

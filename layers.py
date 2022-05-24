@@ -51,20 +51,21 @@ class ConvolutionBank(keras.layers.Layer):
         return tf.concat(outs, -1)
 
 class CBHG(keras.layers.Layer):
-    def __init__(self, latent_dims, num_banks):
+    def __init__(self, input_dims, latent_dims, last_dims, num_banks):
         super().__init__()
         self.conv_bank = ConvolutionBank(latent_dims, num_banks)
         self.pooling = keras.layers.MaxPooling1D(pool_size=2, strides=1, padding='same')
         self.conv_proj1 = BatchNormConv1D(latent_dims, 3, padding='same', activation='relu')
-        self.conv_proj2 = BatchNormConv1D(latent_dims, 3, padding='same')
-        self.rnn_encoder = keras.layers.Bidirectional(keras.layers.GRU(latent_dims, return_sequences=True, return_state=False))
+        self.conv_proj2 = BatchNormConv1D(input_dims, 3, padding='same')
+        self.rnn_encoder = keras.layers.Bidirectional(keras.layers.GRU(last_dims, return_sequences=True, return_state=False))
+        self.proj = keras.layers.Dense(last_dims)
     def call(self, inputs, training=None):
         x = self.conv_bank(inputs, training=training)
         x = self.pooling(x)
         x = self.conv_proj1(x, training=training)
         x = self.conv_proj2(x, training=training)
-        x = x + inputs
-        return self.rnn_encoder(x)
+        x = self.rnn_encoder(x+inputs)
+        return self.proj(x)
 
 class TacotronEncoder(keras.layers.Layer):
     def __init__(self, latent_dims, num_banks):
@@ -77,7 +78,7 @@ class TacotronEncoder(keras.layers.Layer):
             keras.layers.Dense(latent_dims, activation='relu'),
             keras.layers.Dropout(0.5),
         ])
-        self.cbhg = CBHG(latent_dims, num_banks)
+        self.cbhg = CBHG(latent_dims, latent_dims, latent_dims, num_banks)
     def call(self, inputs, training=None):
         x = self.embeddings(inputs)
         x = self.pre_net(x, training=training)
@@ -143,16 +144,11 @@ class TacotronMelDecoder(keras.layers.Layer):
 
 
 class TacotronSpecDecoder(keras.layers.Layer):
-    def __init__(self, latent_dims, spec_bins):
+    def __init__(self, latent_dims, mel_bins, spec_bins, num_banks):
         super().__init__()
-        self.latent_dims = latent_dims
-        self.spec_bins = spec_bins
-        self.lstm_decoder = LstmSeq(latent_dims, 1)
-        self.dense = keras.layers.Dense(spec_bins)
+        self.cbhg = CBHG(mel_bins, latent_dims, spec_bins, num_banks)
     def call(self, inputs):
-        x, _ = self.lstm_decoder(inputs)
-        x = self.dense(x)
-        return x
+        return self.cbhg(inputs)
 
 class RNNAttentionNaive(keras.layers.Layer):
     '''
