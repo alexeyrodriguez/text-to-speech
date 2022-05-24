@@ -32,9 +32,9 @@ class BatchNormConv1D(keras.layers.Conv1D):
     def __init__(self, filters, kernel_size, **kwargs):
         super().__init__(filters, kernel_size, **kwargs)
         self.batch_norm = keras.layers.BatchNormalization()
-    def call(self, inputs):
+    def call(self, inputs, training=None):
         x = super().call(inputs)
-        return self.batch_norm(x)
+        return self.batch_norm(x, training=training)
 
 class ConvolutionBank(keras.layers.Layer):
     def __init__(self, latent_dims, num_banks):
@@ -43,9 +43,9 @@ class ConvolutionBank(keras.layers.Layer):
             BatchNormConv1D(latent_dims, i+1, padding='same', activation='relu')
             for i in range(num_banks)
         ]
-    def call(self, inputs):
+    def call(self, inputs, training=None):
         outs = [
-            conv(inputs)
+            conv(inputs, training=training)
             for conv in self.convs
         ]
         return tf.concat(outs, -1)
@@ -58,10 +58,10 @@ class CBHG(keras.layers.Layer):
         self.conv_proj1 = BatchNormConv1D(latent_dims, 3, padding='same', activation='relu')
         self.conv_proj2 = BatchNormConv1D(latent_dims, 3, padding='same')
     def call(self, inputs, training=None):
-        x = self.conv_bank(inputs)
+        x = self.conv_bank(inputs, training=training)
         x = self.pooling(x)
-        x = self.conv_proj1(x)
-        x = self.conv_proj2(x)
+        x = self.conv_proj1(x, training=training)
+        x = self.conv_proj2(x, training=training)
         return x + inputs
 
 class TacotronEncoder(keras.layers.Layer):
@@ -80,7 +80,7 @@ class TacotronEncoder(keras.layers.Layer):
     def call(self, inputs, training=None):
         x = self.embeddings(inputs)
         x = self.pre_net(x, training=training)
-        x = self.cbhg(x)
+        x = self.cbhg(x, training=training)
         x = self.rnn_encoder(x)
         return x
 
