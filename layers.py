@@ -65,7 +65,7 @@ class CBHG(keras.layers.Layer):
         return x + inputs
 
 class TacotronEncoder(keras.layers.Layer):
-    def __init__(self, latent_dims, num_layers):
+    def __init__(self, latent_dims, num_banks):
         super().__init__()
         self.latent_dims = latent_dims
         self.embeddings = keras.layers.Embedding(input_dim=(1+prepare_data.num_characters), output_dim=2*latent_dims)
@@ -75,7 +75,7 @@ class TacotronEncoder(keras.layers.Layer):
             keras.layers.Dense(latent_dims, activation='relu'),
             keras.layers.Dropout(0.5),
         ])
-        self.cbhg = CBHG(latent_dims, 3)
+        self.cbhg = CBHG(latent_dims, num_banks)
         self.rnn_encoder = keras.layers.Bidirectional(keras.layers.GRU(latent_dims, return_sequences=True, return_state=False))
     def call(self, inputs, training=None):
         x = self.embeddings(inputs)
@@ -102,10 +102,9 @@ class TacotronMelDecoderRNN(keras.layers.Layer):
         self.rnn_attention.setup_attended(attended_inputs)
 
 class TacotronMelDecoder(keras.layers.Layer):
-    def __init__(self, latent_dims, num_layers, mel_bins, batch_size, max_length_input):
+    def __init__(self, latent_dims, mel_bins, batch_size, max_length_input):
         super(TacotronMelDecoder, self).__init__()
         self.latent_dims = latent_dims
-        self.num_layers = num_layers
         self.mel_bins = mel_bins
 
         self.pre_net = keras.Sequential([
@@ -144,12 +143,11 @@ class TacotronMelDecoder(keras.layers.Layer):
 
 
 class TacotronSpecDecoder(keras.layers.Layer):
-    def __init__(self, latent_dims, num_layers, spec_bins):
+    def __init__(self, latent_dims, spec_bins):
         super().__init__()
         self.latent_dims = latent_dims
-        self.num_layers = num_layers
         self.spec_bins = spec_bins
-        self.lstm_decoder = LstmSeq(latent_dims, num_layers)
+        self.lstm_decoder = LstmSeq(latent_dims, 1)
         self.dense = keras.layers.Dense(spec_bins)
     def call(self, inputs):
         x, _ = self.lstm_decoder(inputs)
