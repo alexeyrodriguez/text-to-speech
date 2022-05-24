@@ -15,6 +15,13 @@ num_to_char = keras.layers.StringLookup(
     vocabulary=char_to_num.get_vocabulary(), oov_token="", invert=True
 )
 
+def encode_text(text):
+    encoded = tf.strings.lower(text)
+    encoded = tf.strings.unicode_split(encoded, input_encoding="UTF-8")
+    encoded = char_to_num(encoded)
+    return encoded
+
+
 # Based on https://keras.io/examples/audio/ctc_asr/
 def prepare_ljspeech():
     data_path = tf.keras.utils.get_file("LJSpeech-1.1", DATA_URL, untar=True)
@@ -45,9 +52,7 @@ def encode_single_sample(mel_matrix,
         audio = tf.squeeze(audio, axis=-1)
         audio = tf.cast(audio, tf.float32)
 
-        label = tf.strings.lower(transcription)
-        label = tf.strings.unicode_split(label, input_encoding="UTF-8")
-        label = char_to_num(label)
+        label = encode_text(transcription)
 
         norm_spectrogram, spectrogram, raw_spectrogram = \
             utils.stft_transform(audio, gin.REQUIRED, gin.REQUIRED, gin.REQUIRED)
