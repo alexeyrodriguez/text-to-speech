@@ -57,12 +57,14 @@ class CBHG(keras.layers.Layer):
         self.pooling = keras.layers.MaxPooling1D(pool_size=2, strides=1, padding='same')
         self.conv_proj1 = BatchNormConv1D(latent_dims, 3, padding='same', activation='relu')
         self.conv_proj2 = BatchNormConv1D(latent_dims, 3, padding='same')
+        self.rnn_encoder = keras.layers.Bidirectional(keras.layers.GRU(latent_dims, return_sequences=True, return_state=False))
     def call(self, inputs, training=None):
         x = self.conv_bank(inputs, training=training)
         x = self.pooling(x)
         x = self.conv_proj1(x, training=training)
         x = self.conv_proj2(x, training=training)
-        return x + inputs
+        x = x + inputs
+        return self.rnn_encoder(x)
 
 class TacotronEncoder(keras.layers.Layer):
     def __init__(self, latent_dims, num_banks):
@@ -76,12 +78,10 @@ class TacotronEncoder(keras.layers.Layer):
             keras.layers.Dropout(0.5),
         ])
         self.cbhg = CBHG(latent_dims, num_banks)
-        self.rnn_encoder = keras.layers.Bidirectional(keras.layers.GRU(latent_dims, return_sequences=True, return_state=False))
     def call(self, inputs, training=None):
         x = self.embeddings(inputs)
         x = self.pre_net(x, training=training)
         x = self.cbhg(x, training=training)
-        x = self.rnn_encoder(x)
         return x
 
 class TacotronMelDecoderRNN(keras.layers.Layer):
