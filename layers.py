@@ -121,12 +121,12 @@ class TacotronMelDecoder(keras.layers.Layer):
         self.rnn_cell = tfa.seq2seq.AttentionWrapper(
             self.decoder_rnn_cell, self.attention_mechanism, attention_layer_size=2*latent_dims
         )
-        self.decoder = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
+        self.attention_rnn = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
         self.proj = tf.keras.layers.Dense(mel_bins)
 
     def call(self, inputs, initial_state=None, training=None):
         x = self.pre_net(inputs, training=training)
-        outputs = self.decoder(x, initial_state=initial_state)
+        outputs = self.attention_rnn(x, initial_state=initial_state)
         x = self.proj(outputs[0])
         return x, outputs[1:]
 
@@ -136,7 +136,7 @@ class TacotronMelDecoder(keras.layers.Layer):
 
 class TacotronSpecDecoder(keras.layers.Layer):
     def __init__(self, latent_dims, num_layers, spec_bins):
-        super(TacotronSpecDecoder, self).__init__()
+        super().__init__()
         self.latent_dims = latent_dims
         self.num_layers = num_layers
         self.spec_bins = spec_bins
@@ -154,7 +154,7 @@ class RNNAttentionNaive(keras.layers.Layer):
     that generates the next attention step.)
     '''
     def __init__(self, latent_dims):
-        super(RNNAttentionNaive, self).__init__()
+        super().__init__()
         self.latent_dims = latent_dims
         self.lstm = keras.layers.LSTM(latent_dims, return_sequences=True, return_state=True)
         self.dense1 = keras.layers.Dense(latent_dims)
