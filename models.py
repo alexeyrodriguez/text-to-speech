@@ -48,7 +48,10 @@ class NaiveLstmTTS(tf.keras.Model):
 
 @gin.configurable
 class TacotronTTS(tf.keras.Model):
-    def __init__(self, latent_dims, mel_bins, spec_bins, num_encoder_banks, batch_size, max_length_input):
+    def __init__(
+            self, latent_dims, mel_bins, spec_bins,
+            num_encoder_banks, num_decoder_banks, batch_size, max_length_input
+        ):
         super().__init__()
         self.latent_dims = latent_dims
         self.mel_bins = mel_bins
