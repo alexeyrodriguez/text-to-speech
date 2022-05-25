@@ -6,7 +6,7 @@ import gin.tf.external_configurables
 datasets.secs_threshold = 4.0
 
 train_driver.optimizer = @tf.keras.optimizers.Adam()
-train_driver.epochs = 40
+train_driver.epochs = 200
 train_driver.model = @TacotronTTS()
 train_driver.batch_report = 8
 
