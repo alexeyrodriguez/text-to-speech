@@ -105,7 +105,7 @@ def train(
                 batch_loss, gradients = train_step(optimizer, mae, model, batch, inputs, outputs)
                 losses.append(batch_loss)
                 if batch % batch_report == 0:
-                    print(f'Batch {batch}, loss={batch_loss}')
+                    print(f'Batch {batch}, loss={batch_loss}', flush=True)
                 step += 1
 
         end_time = time.time()
