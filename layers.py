@@ -85,28 +85,15 @@ class TacotronEncoder(keras.layers.Layer):
         x = self.cbhg(x, training=training)
         return x
 
-class TacotronMelDecoderRNN(keras.layers.Layer):
-    def __init__(self, latent_dims, num_layers, mel_bins):
-        super(TacotronMelDecoderRNN, self).__init__()
-        self.latent_dims = latent_dims
-        self.num_layers = num_layers
-        self.mel_bins = mel_bins
-        self.rnn_attention = RNNAttention(latent_dims)
-        self.dense = keras.layers.Dense(mel_bins)
-
-    def call(self, inputs, initial_state=None):
-        outputs = self.rnn_attention(inputs, initial_state=initial_state)
-        x = self.dense(outputs[0])
-        return x, outputs[1:]
-
-    def setup_attended(self, attended_inputs):
-        self.rnn_attention.setup_attended(attended_inputs)
-
+@gin.configurable
 class TacotronMelDecoder(keras.layers.Layer):
-    def __init__(self, latent_dims, mel_bins, batch_size, max_length_input):
+    def __init__(self, latent_dims, mel_bins, batch_size, max_length_input, custom_attention=None):
         super(TacotronMelDecoder, self).__init__()
         self.latent_dims = latent_dims
         self.mel_bins = mel_bins
+        self.batch_size = batch_size
+        self.max_length_input = max_length_input
+        self.custom_attention = custom_attention
 
         self.pre_net = keras.Sequential([
             keras.layers.Dense(latent_dims*2, activation='relu'),
@@ -114,17 +101,23 @@ class TacotronMelDecoder(keras.layers.Layer):
             keras.layers.Dense(latent_dims, activation='relu'),
             keras.layers.Dropout(0.5),
         ])
-        self.decoder_rnn_cell = tf.keras.layers.GRUCell(2*latent_dims)
-        self.attention_mechanism = tfa.seq2seq.BahdanauAttention(
-            units=2*latent_dims, memory=None, memory_sequence_length=batch_size * max_length_input
-        )
-        self.rnn_cell = tfa.seq2seq.AttentionWrapper(
-            self.decoder_rnn_cell, self.attention_mechanism, attention_layer_size=2*latent_dims
-        )
-        self.attention_rnn = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
+        self._make_attention_rnn()
         self.decode_rnn1 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
         self.decode_rnn2 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
         self.proj = tf.keras.layers.Dense(mel_bins)
+
+    def _make_attention_rnn(self):
+        if not self.custom_attention:
+            self.decoder_rnn_cell = tf.keras.layers.GRUCell(2*self.latent_dims)
+            self.attention_mechanism = tfa.seq2seq.BahdanauAttention(
+                units=2*self.latent_dims, memory=None, memory_sequence_length=self.batch_size * self.max_length_input
+            )
+            self.rnn_cell = tfa.seq2seq.AttentionWrapper(
+                self.decoder_rnn_cell, self.attention_mechanism, attention_layer_size=2*self.latent_dims
+            )
+            self.attention_rnn = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
+        else:
+            self.attention_rnn = RNNAttention(2*self.latent_dims)
 
     def call(self, inputs, initial_state=None, training=None):
         if initial_state:
@@ -140,8 +133,10 @@ class TacotronMelDecoder(keras.layers.Layer):
         return x, [state_att, state1, state2]
 
     def setup_attended(self, attended_inputs):
-        self.attention_mechanism.setup_memory(attended_inputs)
-
+        if not self.custom_attention:
+            self.attention_mechanism.setup_memory(attended_inputs)
+        else:
+            self.attention_rnn.setup_attended(attended_inputs)
 
 class TacotronSpecDecoder(keras.layers.Layer):
     def __init__(self, latent_dims, mel_bins, spec_bins, num_banks):
@@ -207,18 +202,19 @@ class RNNAttentionCell(tf.keras.layers.LSTMCell):
         self.attention_dense = keras.layers.Dense(1)
         self.units = units
     def build(self, shape):
-        # the input now includes the result of attention
-        new_shape = list(shape[:-1]) + [shape[-1] + self.units]
+        # the input dimension is doubled because it's concatenated with attended inputs
+        # Note that we assume that attended inputs have the same dimension as inputs
+        new_shape = list(shape[:-1]) + [2 * shape[-1]]
         new_shape = tuple(new_shape)
         return super().build(new_shape)
     def call(self, inputs, states, training=None):
         state_h, _state_c = states
         query = tf.expand_dims(self.query_dense(state_h), 1) # [B, 1, D]
-        attn = tf.tanh(self.injected_keys + query) # [B, M, D]
+        attn = tf.tanh(self.injected_keys + query) # [B, M, D] M attended length
         attn = tf.squeeze(self.attention_dense(attn), 2) # [B, M]
         attn = tf.keras.layers.Softmax()(attn)
-        weighted_attended_inputs = tf.einsum('bm,bmd->bd', attn, self.injected_attended_inputs) # [B, D]
-        inputs = tf.concat([inputs, weighted_attended_inputs], 1) # [B, 2*D]
+        weighted_attended_inputs = tf.einsum('bm,bmd->bd', attn, self.injected_attended_inputs) # [B, I] I input dimension
+        inputs = tf.concat([inputs, weighted_attended_inputs], 1) # [B, 2*I]
         x, states = super().call(inputs, states, training=training)
         return x, states
 

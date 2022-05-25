@@ -3,7 +3,7 @@ from tensorflow import keras
 import gin
 
 import prepare_data
-from layers import LstmSeq, TacotronEncoder, TacotronMelDecoder, TacotronSpecDecoder, TacotronMelDecoderRNN
+from layers import LstmSeq, TacotronEncoder, TacotronMelDecoder, TacotronSpecDecoder
 
 @gin.configurable
 class NaiveLstmTTS(tf.keras.Model):
@@ -60,7 +60,6 @@ class TacotronTTS(tf.keras.Model):
         self.max_length_input = max_length_input
         self.tacotron_encoder = TacotronEncoder(latent_dims, num_encoder_banks)
         self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, mel_bins, batch_size, max_length_input)
-        #self.tacotron_mel_decoder = TacotronMelDecoderRNN(latent_dims, num_layers, mel_bins)
         self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, mel_bins, spec_bins, num_decoder_banks)
 
     def call(self, inputs):
