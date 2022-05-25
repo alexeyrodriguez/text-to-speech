@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser(description='Training script.')
 parser.add_argument('--cloud-config', action = 'store', type = str, help = 'Cloud configuration', required=True)
 parser.add_argument('--experiment', action = 'store', type = str, help = 'Experiment configuration', required=True)
 parser.add_argument('--detach', action='store_true', help = 'Let execution continue even after disconnection')
+parser.add_argument('--power-off', action='store_true', help = 'Switch off node after training')
 
 @gin.configurable
 def gcloud(args, check=True, gcloud_path='gcloud', fake=False):
@@ -35,10 +36,11 @@ REMOTE_RUNNER = 'scripts/run_remote_training.sh'
 def gcloud_remote_training(args, instance_name,
         git_repo_url=gin.REQUIRED, git_branch=gin.REQUIRED, gcs_model_path=gin.REQUIRED,
         wandb_api_key=None, wandb_entity=None, extra_args=[]):
+    power_off_arg = 'yes' if args.power_off else 'no'
     command = [
-        'bash', os.path.basename(REMOTE_RUNNER), git_repo_url, git_branch, gcs_model_path,
-        '--experiment', args.experiment
+        'bash', os.path.basename(REMOTE_RUNNER), git_repo_url, git_branch, gcs_model_path, power_off_arg
     ]
+    command.extend(['--experiment', args.experiment])
     if wandb_api_key:
         command.extend(['--wandb-api-key', wandb_api_key, '--wandb-entity', wandb_entity])
     command.extend(extra_args)

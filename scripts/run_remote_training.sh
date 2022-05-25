@@ -9,7 +9,8 @@
 GIT_REPO=$1
 BRANCH=$2
 GCS_PATH=$3
-shift 3
+POWER_OFF=$4
+shift 4
 
 # Get required env
 . /etc/profile
@@ -41,3 +42,7 @@ gsutil -m cp -r $MODEL_DIR/* "$GCS_PATH"
 mkdir -p models
 mv $MODEL_DIR/* models
 rmdir $MODEL_DIR
+
+if [ "$POWER_OFF" == "yes" ]; then
+    sudo poweroff
+fi
