@@ -30,7 +30,7 @@ else
 fi
 
 # put the below stuff into requirements
-pip install gin-config wandb
+pip install gin-config wandb tensorflow-addons
 
 mkdir -p $MODEL_DIR
 python training.py --model-dir $MODEL_DIR "$@"
