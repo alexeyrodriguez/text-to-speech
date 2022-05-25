@@ -147,6 +147,8 @@ def train_driver(
     if args.wandb_api_key:
         wandb.login(key=args.wandb_api_key)
         wandb.init(entity=args.wandb_entity, project=wandb_project)
+        wandb.config.update({'model_name': model_name, 'experiment_name': experiment_name})
+        wandb.config.update(generate_gin_config_dict())
 
     if args.wandb_api_key:
         # We only log the gradients of the last batch of the epoch
@@ -160,8 +162,6 @@ def train_driver(
     )
 
     if args.wandb_api_key:
-        wandb.config.update({'model_name': model_name, 'experiment_name': experiment_name})
-        wandb.config.update(generate_gin_config_dict())
         wandb.finish()
 
     print(f'Writing model to disk under {model_path_name}')
