@@ -27,13 +27,12 @@ class TestTacotronModel(tf.test.TestCase):
         model = models.TacotronTTS()
 
         # Generate mel and linear spectrograms from input text
-        gen_mel_spec, gen_spec = model.decode(self.encoded_text, self.frames)
+        gen_mel_spec = model.decode(self.encoded_text, self.frames)
 
         # Now check that iterative decoding is consistent with RNN handling full sequence
         in_mel_spec = tf.pad(gen_mel_spec[:, :-1,:], [(0, 0), (1,0), (0,0)]) # add go frame and drop last one
-        out_mel_spec, out_spec = model([self.encoded_text, in_mel_spec])
+        out_mel_spec = model([self.encoded_text, in_mel_spec])
         self.assertAllClose(out_mel_spec, gen_mel_spec)
-        self.assertAllClose(gen_spec, out_spec)
 
     def test_train(self):
         training_dataset, validation_dataset = prepare_data.datasets(adapter=training.adapt_dataset)
@@ -42,7 +41,7 @@ class TestTacotronModel(tf.test.TestCase):
 
         mae = tf.keras.losses.MeanAbsoluteError()
         outputs = model(inputs)
-        pre_train_loss = mae(outputs[0], ref_outputs[0]) + mae(outputs[1], ref_outputs[1])
+        pre_train_loss = mae(outputs, ref_outputs)
 
         # Train
         optimizer = tf.keras.optimizers.Adam(1e-4)
@@ -52,7 +51,7 @@ class TestTacotronModel(tf.test.TestCase):
         )
 
         outputs = model(inputs)
-        post_train_loss = mae(outputs[0], ref_outputs[0]) + mae(outputs[1], ref_outputs[1])
+        post_train_loss = mae(outputs, ref_outputs)
 
         assert pre_train_loss > post_train_loss
 
@@ -74,8 +73,8 @@ class TestTacotronModel(tf.test.TestCase):
             model.save_weights(model_file_name)
             new_model.load_weights(model_file_name)
 
-            gen_mel_spec, gen_spec = model.decode(self.encoded_text, self.frames)
-            gen_mel_spec2, gen_spec2 = new_model.decode(self.encoded_text, self.frames)
+            gen_mel_spec = model.decode(self.encoded_text, self.frames)
+            gen_mel_spec2 = new_model.decode(self.encoded_text, self.frames)
             self.assertAllClose(gen_mel_spec, gen_mel_spec2)
 
 

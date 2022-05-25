@@ -60,15 +60,15 @@ class TacotronTTS(tf.keras.Model):
         self.max_length_input = max_length_input
         self.tacotron_encoder = TacotronEncoder(latent_dims, num_encoder_banks)
         self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, mel_bins, batch_size, max_length_input)
-        self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, mel_bins, spec_bins, num_decoder_banks)
+        # self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, mel_bins, spec_bins, num_decoder_banks)
 
     def call(self, inputs):
         inputs, mel_inputs = inputs
         enc_output = self.tacotron_encoder(inputs)
         self.tacotron_mel_decoder.setup_attended(enc_output)
         mel_outputs, _ = self.tacotron_mel_decoder(mel_inputs)
-        spec_outputs = self.tacotron_spec_decoder(mel_outputs)
-        return mel_outputs, spec_outputs
+        # spec_outputs = self.tacotron_spec_decoder(mel_outputs)
+        return mel_outputs
 
     def decode(self, encoder_inputs, num_frames):
         encoded_inputs = self.tacotron_encoder(encoder_inputs)
@@ -84,5 +84,5 @@ class TacotronTTS(tf.keras.Model):
             input_frame = new_output
 
         mel_spec = tf.concat(output, axis=1)
-        spectrogram = self.tacotron_spec_decoder(mel_spec)
-        return mel_spec, spectrogram
+        # spectrogram = self.tacotron_spec_decoder(mel_spec)
+        return mel_spec

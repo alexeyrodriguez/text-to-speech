@@ -55,14 +55,14 @@ def adapt_dataset(spectrogram, mel_spec, emb_transcription):
     '''
     in_mel_spec = tf.pad(mel_spec[:, :-1,:], [(0, 0), (1,0), (0,0)])
     out_mel_spec = mel_spec
-    return (emb_transcription, in_mel_spec), (out_mel_spec, spectrogram)
+    return (emb_transcription, in_mel_spec), out_mel_spec #(out_mel_spec, spectrogram)
 
 def train_step(optimizer, mae, model, batch, inputs, outputs):
     inputs, mel_inputs = inputs
-    mel_outputs, spec_outputs = outputs
+    mel_outputs = outputs
     with tf.GradientTape() as tape:
-        pred_mel_outputs, pred_spec_outputs = model([inputs, mel_inputs])
-        batch_loss = mae(mel_outputs, pred_mel_outputs) + mae(spec_outputs, pred_spec_outputs)
+        pred_mel_outputs = model([inputs, mel_inputs])
+        batch_loss = mae(mel_outputs, pred_mel_outputs)
 
     variables = model.trainable_variables
     gradients = tape.gradient(batch_loss, variables)
@@ -71,9 +71,9 @@ def train_step(optimizer, mae, model, batch, inputs, outputs):
 
 def eval_step(optimizer, mae, model, batch, inputs, outputs):
     inputs, mel_inputs = inputs
-    mel_outputs, spec_outputs = outputs
-    pred_mel_outputs, pred_spec_outputs = model([inputs, mel_inputs])
-    return mae(mel_outputs, pred_mel_outputs) + mae(spec_outputs, pred_spec_outputs)
+    mel_outputs = outputs
+    pred_mel_outputs = model([inputs, mel_inputs])
+    return mae(mel_outputs, pred_mel_outputs)
 
 def train(
         optimizer, epochs, model, batch_report, training_dataset, validation_dataset,
