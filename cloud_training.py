@@ -59,10 +59,11 @@ if __name__=='__main__':
     if not gcloud_start(instance_name):
         print(f'Instance {instance_name} not yet available, creating')
         gcloud_create_instance(instance_name)
+        print(f'Call the script again to start training, it may fail until setup of the new node is completed')
     else:
         print(f'Using instance: {instance_name}')
 
-    print('Copying remote running script')
-    gcloud(['compute', 'scp', REMOTE_RUNNER, f'{instance_name}:'])
+        print('Copying remote running script')
+        gcloud(['compute', 'scp', REMOTE_RUNNER, f'{instance_name}:'])
 
-    gcloud_remote_training(args, instance_name)
+        gcloud_remote_training(args, instance_name)
