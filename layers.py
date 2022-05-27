@@ -30,11 +30,15 @@ class LstmSeq(keras.layers.Layer):
 
 class BatchNormConv1D(keras.layers.Conv1D):
     def __init__(self, filters, kernel_size, **kwargs):
+        self.activation = kwargs.pop('activation', None)
         super().__init__(filters, kernel_size, **kwargs)
         self.batch_norm = keras.layers.BatchNormalization()
     def call(self, inputs, training=None):
         x = super().call(inputs)
-        return self.batch_norm(x, training=training)
+        x = self.batch_norm(x, training=training)
+        if self.activation == 'relu':
+           x = keras.backend.relu(x)
+        return x
 
 class ConvolutionBank(keras.layers.Layer):
     def __init__(self, latent_dims, num_banks):
