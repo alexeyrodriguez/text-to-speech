@@ -59,12 +59,12 @@ class CBHG(keras.layers.Layer):
         self.conv_proj2 = BatchNormConv1D(input_dims, 3, padding='same')
         self.rnn_encoder = keras.layers.Bidirectional(keras.layers.GRU(last_dims, return_sequences=True, return_state=False))
         self.proj = keras.layers.Dense(last_dims)
-    def call(self, inputs, training=None):
+    def call(self, inputs, training=None, mask=None):
         x = self.conv_bank(inputs, training=training)
         x = self.pooling(x)
         x = self.conv_proj1(x, training=training)
         x = self.conv_proj2(x, training=training)
-        x = self.rnn_encoder(x+inputs)
+        x = self.rnn_encoder(x+inputs, mask=mask)
         return self.proj(x)
 
 class TacotronEncoder(keras.layers.Layer):
@@ -80,9 +80,10 @@ class TacotronEncoder(keras.layers.Layer):
         ])
         self.cbhg = CBHG(latent_dims, latent_dims, latent_dims, num_banks)
     def call(self, inputs, training=None):
+        mask = inputs == tf.constant(-1, dtype=tf.int64)
         x = self.embeddings(inputs)
         x = self.pre_net(x, training=training)
-        x = self.cbhg(x, training=training)
+        x = self.cbhg(x, training=training, mask=mask)
         return x
 
 @gin.configurable

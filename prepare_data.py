@@ -91,8 +91,14 @@ def datasets(batch_size=32, target_sample_rate=gin.REQUIRED,
         dataset = dataset.map(
             encode_single_sample(mel_matrix, target_sample_rate=target_sample_rate, **kwargs), num_parallel_calls=tf.data.AUTOTUNE
         )
-
-        dataset = dataset.padded_batch(batch_size)
+        padding_values = [0.0, 0.0, tf.constant(-1, dtype=tf.int64)]
+        if 'keep_audio' in kwargs:
+            padding_values.append(0.0)
+        if 'keep_raw_spectrogram' in kwargs:
+            padding_values.append(tf.constant(0.0, dtype=tf.complex64))
+        if 'keep_transcription' in kwargs:
+            padding_values.append('')
+        dataset = dataset.padded_batch(batch_size, padding_values=tuple(padding_values))
 
         if take_batches:
             dataset = dataset.take(take_batches)
