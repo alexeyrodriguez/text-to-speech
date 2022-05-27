@@ -64,16 +64,16 @@ class TacotronTTS(tf.keras.Model):
 
     def call(self, inputs):
         inputs, mel_inputs = inputs
-        enc_output = self.tacotron_encoder(inputs)
-        self.tacotron_mel_decoder.setup_attended(enc_output)
+        enc_output, seq_lengths = self.tacotron_encoder(inputs)
+        self.tacotron_mel_decoder.setup_attended(enc_output, seq_lengths)
         mel_outputs, _ = self.tacotron_mel_decoder(mel_inputs)
         # spec_outputs = self.tacotron_spec_decoder(mel_outputs)
         return mel_outputs
 
     def decode(self, encoder_inputs, num_frames, return_states=None):
-        encoded_inputs = self.tacotron_encoder(encoder_inputs)
+        encoded_inputs, seq_lengths = self.tacotron_encoder(encoder_inputs)
         state = None
-        self.tacotron_mel_decoder.setup_attended(encoded_inputs)
+        self.tacotron_mel_decoder.setup_attended(encoded_inputs, seq_lengths)
 
         input_frame = tf.zeros((tf.shape(encoder_inputs)[0], 1, self.mel_bins))
         output = []

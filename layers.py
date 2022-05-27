@@ -88,7 +88,8 @@ class TacotronEncoder(keras.layers.Layer):
         x = self.embeddings(inputs)
         x = self.pre_net(x, training=training)
         x = self.cbhg(x, training=training, mask=mask)
-        return x
+        seq_lengths = keras.backend.sum(tf.where(mask, 0, 1), 1)
+        return x, seq_lengths
 
 @gin.configurable
 class TacotronMelDecoder(keras.layers.Layer):
@@ -140,9 +141,9 @@ class TacotronMelDecoder(keras.layers.Layer):
         x = self.proj(x+y1+y2)
         return x, [state_att, state1, state2]
 
-    def setup_attended(self, attended_inputs):
+    def setup_attended(self, attended_inputs, input_length=None):
         if not self.custom_attention:
-            self.attention_mechanism.setup_memory(attended_inputs)
+            self.attention_mechanism.setup_memory(attended_inputs, memory_sequence_length=input_length)
         else:
             self.attention_rnn.setup_attended(attended_inputs)
 
