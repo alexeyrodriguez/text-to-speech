@@ -87,8 +87,11 @@ class TacotronEncoder(keras.layers.Layer):
 
 @gin.configurable
 class TacotronMelDecoder(keras.layers.Layer):
-    def __init__(self, latent_dims, mel_bins, batch_size, max_length_input, custom_attention=None):
-        super(TacotronMelDecoder, self).__init__()
+    def __init__(
+            self, latent_dims, mel_bins, batch_size, max_length_input,
+            custom_attention=None
+        ):
+        super().__init__()
         self.latent_dims = latent_dims
         self.mel_bins = mel_bins
         self.batch_size = batch_size

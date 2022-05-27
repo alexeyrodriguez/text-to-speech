@@ -70,19 +70,26 @@ class TacotronTTS(tf.keras.Model):
         # spec_outputs = self.tacotron_spec_decoder(mel_outputs)
         return mel_outputs
 
-    def decode(self, encoder_inputs, num_frames):
+    def decode(self, encoder_inputs, num_frames, return_states=None):
         encoded_inputs = self.tacotron_encoder(encoder_inputs)
         state = None
         self.tacotron_mel_decoder.setup_attended(encoded_inputs)
 
         input_frame = tf.zeros((tf.shape(encoder_inputs)[0], 1, self.mel_bins))
         output = []
+        states = []
 
         for i in range(num_frames):
             new_output, state = self.tacotron_mel_decoder(input_frame, state)
+            if return_states:
+                states.append(state)
             output.append(new_output)
             input_frame = new_output
 
         mel_spec = tf.concat(output, axis=1)
         # spectrogram = self.tacotron_spec_decoder(mel_spec)
-        return mel_spec
+
+        if return_states:
+            return [mel_spec, states]
+        else:
+            return mel_spec
