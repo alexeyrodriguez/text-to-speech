@@ -135,7 +135,7 @@ def train(
 @gin.configurable
 def train_driver(
         args, optimizer, epochs, model,
-        batch_report=gin.REQUIRED, profiling=None, wandb_project='simple-tts'
+        batch_report=gin.REQUIRED, profiling=None, wandb_project='simple-tts', save_every_epochs=None
     ):
     training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset)
 
@@ -143,6 +143,7 @@ def train_driver(
     model_name = gin.query_parameter('train_driver.model').selector
     model_name = f'{datetime.now().strftime("%Y%m%d-%H%M%S")}_{experiment_name}__{model_name}'
     model_path_name = f'{args.model_dir}/{model_name}'
+    os.makedirs(model_path_name)
 
     if args.wandb_api_key:
         wandb.login(key=args.wandb_api_key)
@@ -150,11 +151,12 @@ def train_driver(
         wandb.config.update({'model_name': model_name, 'experiment_name': experiment_name})
         wandb.config.update(generate_gin_config_dict())
 
-    if args.wandb_api_key:
-        # We only log the gradients of the last batch of the epoch
-        epoch_hook = lambda epoch, model, metrics, gradients: wandb_logging.log(epoch, model, metrics, gradients)
-    else:
-        epoch_hook = None
+    def epoch_hook(epoch, model, metrics, gradients):
+        if save_every_epochs and epoch % save_every_epochs == 0:
+            model.save_weights(model_path_name + '/epoch_' + str(epoch))
+        if args.wandb_api_key:
+            # We only log the gradients of the last batch of the epoch
+            wandb_logging.log(epoch, model, metrics, gradients)
 
     train(
         optimizer, epochs, model, batch_report, training_dataset, validation_dataset,
@@ -165,7 +167,7 @@ def train_driver(
         wandb.finish()
 
     print(f'Writing model to disk under {model_path_name}')
-    model.save_weights(model_path_name)
+    model.save_weights(model_path_name + '/final')
 
 def generate_gin_config_dict():
     '''
