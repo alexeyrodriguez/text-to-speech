@@ -94,14 +94,11 @@ class TacotronEncoder(keras.layers.Layer):
 @gin.configurable
 class TacotronMelDecoder(keras.layers.Layer):
     def __init__(
-            self, latent_dims, mel_bins, batch_size, max_length_input,
-            custom_attention=None
+            self, latent_dims, mel_bins, custom_attention=None
         ):
         super().__init__()
         self.latent_dims = latent_dims
         self.mel_bins = mel_bins
-        self.batch_size = batch_size
-        self.max_length_input = max_length_input
         self.custom_attention = custom_attention
 
         self.pre_net = keras.Sequential([
@@ -119,10 +116,10 @@ class TacotronMelDecoder(keras.layers.Layer):
         if not self.custom_attention:
             self.decoder_rnn_cell = tf.keras.layers.GRUCell(2*self.latent_dims)
             self.attention_mechanism = tfa.seq2seq.BahdanauAttention(
-                units=2*self.latent_dims, memory=None, memory_sequence_length=self.batch_size * self.max_length_input
+                units=2*self.latent_dims, memory=None
             )
             self.rnn_cell = tfa.seq2seq.AttentionWrapper(
-                self.decoder_rnn_cell, self.attention_mechanism, attention_layer_size=2*self.latent_dims
+                self.decoder_rnn_cell, self.attention_mechanism, output_attention=False,
             )
             self.attention_rnn = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
         else:

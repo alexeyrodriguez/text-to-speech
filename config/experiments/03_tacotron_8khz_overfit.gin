@@ -17,7 +17,5 @@ TacotronTTS.mel_bins = %mel_bins
 TacotronTTS.spec_bins = %spec_bins
 TacotronTTS.num_encoder_banks = 3
 TacotronTTS.num_decoder_banks = 3
-TacotronTTS.batch_size = 32
-TacotronTTS.max_length_input = 256 # I really don't know
 
 datasets.take_batches = 2 # Two batch epochs
