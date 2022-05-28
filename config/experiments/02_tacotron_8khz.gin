@@ -11,6 +11,7 @@ train_driver.optimizer = @tf.keras.optimizers.Adam()
 train_driver.epochs = 6
 train_driver.model = @TacotronTTS()
 train_driver.batch_report = 8
+train_driver.save_every_epochs = 2
 
 tf.keras.optimizers.Adam.learning_rate = 1e-4
 
@@ -19,7 +20,8 @@ TacotronTTS.mel_bins = %mel_bins
 TacotronTTS.spec_bins = %spec_bins
 TacotronTTS.num_encoder_banks = 3
 TacotronTTS.num_decoder_banks = 3
-TacotronTTS.batch_size = 32
-TacotronTTS.max_length_input = 256 # I really don't know
+
+datasets.take_batches = 2 # Two batch epochs
+
 
 
