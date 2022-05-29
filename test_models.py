@@ -15,8 +15,8 @@ class TestTacotronModel(tf.test.TestCase):
         gin.parse_config_file('config/experiments/test_tacotron.gin') # Do a config specific test
 
         # Test text
-        input_text = 'in being comparatively modern'
-        encoded_text = prepare_data.encode_text(input_text)
+        self.input_text = 'in being comparatively modern'
+        encoded_text = prepare_data.encode_text(self.input_text)
         self.encoded_text = tf.expand_dims(encoded_text, 0) # batch of size 1
 
         # Number of generated frames to use in tests
@@ -33,6 +33,12 @@ class TestTacotronModel(tf.test.TestCase):
         in_mel_spec = tf.pad(gen_mel_spec[:, :-1,:], [(0, 0), (1,0), (0,0)]) # add go frame and drop last one
         out_mel_spec = model([self.encoded_text, in_mel_spec])
         self.assertAllClose(out_mel_spec, gen_mel_spec)
+
+    def test_length(self):
+        model = models.TacotronTTS()
+        _, seq_length = model.tacotron_encoder(self.encoded_text)
+        ref_seq_length = tf.constant([len(self.input_text)])
+        self.assertAllClose(seq_length, ref_seq_length)
 
     def test_train(self):
         training_dataset, validation_dataset = prepare_data.datasets(adapter=training.adapt_dataset)
