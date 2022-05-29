@@ -110,6 +110,7 @@ class TacotronMelDecoder(keras.layers.Layer):
             keras.layers.Dropout(0.5),
         ])
         self._make_attention_rnn()
+        self.proj_attention = tf.keras.layers.Dense(2*latent_dims, name='mel_att_proj', use_bias=False)
         self.decode_rnn1 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
         self.decode_rnn2 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
         self.proj = tf.keras.layers.Dense(mel_bins, name='mel_dec_proj', use_bias=False, activation='relu')
@@ -120,8 +121,8 @@ class TacotronMelDecoder(keras.layers.Layer):
             self.attention_mechanism = tfa.seq2seq.BahdanauAttention(
                 units=2*self.latent_dims, memory=None
             )
-            self.rnn_cell = tfa.seq2seq.AttentionWrapper(
-                self.decoder_rnn_cell, self.attention_mechanism, output_attention=False,
+            self.rnn_cell = AttentionConcatenatorWrapper(
+                self.decoder_rnn_cell, attention_mechanism=self.attention_mechanism, output_attention=False,
             )
             self.attention_rnn = tf.keras.layers.RNN(self.rnn_cell, return_sequences=True, return_state=True)
         else:
@@ -135,6 +136,7 @@ class TacotronMelDecoder(keras.layers.Layer):
         x = self.pre_net(inputs, training=training)
         outputs = self.attention_rnn(x, initial_state=state_att)
         x, state_att = outputs[0], outputs[1:]
+        x = self.proj_attention(x)
         y1, state1 = self.decode_rnn1(x, initial_state=state1)
         y2, state2 = self.decode_rnn2(x+y1, initial_state=state2)
         x = self.proj(x+y1+y2)
@@ -145,6 +147,23 @@ class TacotronMelDecoder(keras.layers.Layer):
             self.attention_mechanism.setup_memory(attended_inputs, memory_sequence_length=input_length)
         else:
             self.attention_rnn.setup_attended(attended_inputs)
+
+# Borrowing the idea from
+#   https://github.com/keithito/tacotron/blob/master/models/rnn_wrappers.py#L32
+# By returning attention as part of the result (rather than it having to go through the RNN cell),
+# allows I hope better flow of gradients to the attention mechanism and encoder outputs.
+# Sub-classing for conciseness
+class AttentionConcatenatorWrapper(tfa.seq2seq.AttentionWrapper):
+    def __init__(self, cell, **kwargs):
+        super().__init__(cell, **kwargs)
+    def call(self, input, state):
+        output, state = super().call(input, state)
+        assert not self._output_attention
+        return tf.concat([output, state.attention], -1), state
+    @property
+    def output_size(self):
+        assert not self._output_attention
+        return super().output_size + super().state_size.attention
 
 class TacotronSpecDecoder(keras.layers.Layer):
     def __init__(self, latent_dims, mel_bins, spec_bins, num_banks):
