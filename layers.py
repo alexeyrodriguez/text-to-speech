@@ -110,7 +110,7 @@ class TacotronMelDecoder(keras.layers.Layer):
         self._make_attention_rnn()
         self.decode_rnn1 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
         self.decode_rnn2 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
-        self.proj = tf.keras.layers.Dense(mel_bins, name='mel_dec_proj')
+        self.proj = tf.keras.layers.Dense(mel_bins, name='mel_dec_proj', use_bias=False, activation='relu')
 
     def _make_attention_rnn(self):
         if not self.custom_attention:
