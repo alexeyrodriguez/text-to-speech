@@ -57,19 +57,21 @@ class ConvolutionBank(keras.layers.Layer):
 class CBHG(keras.layers.Layer):
     def __init__(self, input_dims, latent_dims, last_dims, num_banks):
         super().__init__()
+        assert last_dims % 2 == 0
         self.conv_bank = ConvolutionBank(latent_dims, num_banks)
         self.pooling = keras.layers.MaxPooling1D(pool_size=2, strides=1, padding='same')
         self.conv_proj1 = BatchNormConv1D(latent_dims, 3, padding='same', activation='relu')
         self.conv_proj2 = BatchNormConv1D(input_dims, 3, padding='same')
-        self.rnn_encoder = keras.layers.Bidirectional(keras.layers.GRU(last_dims, return_sequences=True, return_state=False))
-        self.proj = keras.layers.Dense(last_dims, name='cbhg_proj')
+        self.rnn_encoder = keras.layers.Bidirectional(
+            keras.layers.GRU(last_dims // 2, return_sequences=True, return_state=False)
+        )
     def call(self, inputs, training=None, mask=None):
         x = self.conv_bank(inputs, training=training)
         x = self.pooling(x)
         x = self.conv_proj1(x, training=training)
         x = self.conv_proj2(x, training=training)
         x = self.rnn_encoder(x+inputs, mask=mask)
-        return self.proj(x)
+        return x
 
 class TacotronEncoder(keras.layers.Layer):
     def __init__(self, latent_dims, num_banks):
