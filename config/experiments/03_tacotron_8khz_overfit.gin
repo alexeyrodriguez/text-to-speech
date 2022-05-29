@@ -6,12 +6,12 @@ import gin.tf.external_configurables
 datasets.secs_threshold = 4.0
 
 train_driver.optimizer = @tf.keras.optimizers.Adam()
-train_driver.epochs = 200
+train_driver.epochs = 2000
 train_driver.model = @TacotronTTS()
 train_driver.batch_report = 8
 train_driver.save_every_epochs = 40
 
-tf.keras.optimizers.Adam.learning_rate = 1e-4
+tf.keras.optimizers.Adam.learning_rate = 1e-3
 
 TacotronTTS.latent_dims = 64
 TacotronTTS.mel_bins = %mel_bins
@@ -19,4 +19,4 @@ TacotronTTS.spec_bins = %spec_bins
 TacotronTTS.num_encoder_banks = 3
 TacotronTTS.num_decoder_banks = 3
 
-datasets.take_batches = 2 # Two batch epochs
+datasets.take_batches = 1 # One batch epochs
