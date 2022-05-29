@@ -62,7 +62,7 @@ class CBHG(keras.layers.Layer):
         self.conv_proj1 = BatchNormConv1D(latent_dims, 3, padding='same', activation='relu')
         self.conv_proj2 = BatchNormConv1D(input_dims, 3, padding='same')
         self.rnn_encoder = keras.layers.Bidirectional(keras.layers.GRU(last_dims, return_sequences=True, return_state=False))
-        self.proj = keras.layers.Dense(last_dims)
+        self.proj = keras.layers.Dense(last_dims, name='cbhg_proj')
     def call(self, inputs, training=None, mask=None):
         x = self.conv_bank(inputs, training=training)
         x = self.pooling(x)
@@ -77,9 +77,9 @@ class TacotronEncoder(keras.layers.Layer):
         self.latent_dims = latent_dims
         self.embeddings = keras.layers.Embedding(input_dim=(1+prepare_data.num_characters), output_dim=2*latent_dims)
         self.pre_net = keras.Sequential([
-            keras.layers.Dense(latent_dims*2, activation='relu'),
+            keras.layers.Dense(latent_dims*2, activation='relu', name='e_pre_net_1'),
             keras.layers.Dropout(0.5),
-            keras.layers.Dense(latent_dims, activation='relu'),
+            keras.layers.Dense(latent_dims, activation='relu', name='e_pre_net_2'),
             keras.layers.Dropout(0.5),
         ])
         self.cbhg = CBHG(latent_dims, latent_dims, latent_dims, num_banks)
@@ -102,15 +102,15 @@ class TacotronMelDecoder(keras.layers.Layer):
         self.custom_attention = custom_attention
 
         self.pre_net = keras.Sequential([
-            keras.layers.Dense(latent_dims*2, activation='relu'),
+            keras.layers.Dense(latent_dims*2, activation='relu', name='d_pre_net_1'),
             keras.layers.Dropout(0.5),
-            keras.layers.Dense(latent_dims, activation='relu'),
+            keras.layers.Dense(latent_dims, activation='relu', name='d_pre_net_2'),
             keras.layers.Dropout(0.5),
         ])
         self._make_attention_rnn()
         self.decode_rnn1 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
         self.decode_rnn2 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
-        self.proj = tf.keras.layers.Dense(mel_bins)
+        self.proj = tf.keras.layers.Dense(mel_bins, name='mel_dec_proj')
 
     def _make_attention_rnn(self):
         if not self.custom_attention:
