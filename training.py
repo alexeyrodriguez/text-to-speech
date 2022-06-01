@@ -120,6 +120,7 @@ def train(
             'val_loss': np.array(val_losses).mean(),
             'epoch_time': end_time - start_time,
             'step_time': (end_time - start_time) / (step - start_step),
+            'step': step,
         }
 
         print(f'Epoch {epoch}, loss={metrics["loss"]}, val_loss={metrics["val_loss"]}, ',
