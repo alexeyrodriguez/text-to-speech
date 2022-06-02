@@ -125,6 +125,7 @@ def train(
 
         print(f'Epoch {epoch}, loss={metrics["loss"]}, val_loss={metrics["val_loss"]}, ',
               f'epoch_time={metrics["epoch_time"]}, step_time={metrics["step_time"]}',
+              f'batches={step-start_step}',
               flush=True)
 
         if epoch_hook:

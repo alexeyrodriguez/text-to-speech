@@ -85,8 +85,10 @@ def datasets(batch_size=32, target_sample_rate=gin.REQUIRED,
         dataset = dataset.map(decode_wav(wavs_path), num_parallel_calls=tf.data.AUTOTUNE)
 
         if secs_threshold:
-            samples_threshold = int(secs_threshold * target_sample_rate)
-            dataset = dataset.filter(lambda *x: tf.shape(x[0])[0] <= samples_threshold)
+            def le_threshold(audio, sample_rate, transcription):
+                samples_threshold = secs_threshold * tf.cast(sample_rate, tf.float32)
+                return tf.shape(audio)[0] <= tf.cast(samples_threshold, tf.int32)
+            dataset = dataset.filter(le_threshold)
 
         dataset = dataset.map(
             encode_single_sample(mel_matrix, target_sample_rate=target_sample_rate, **kwargs), num_parallel_calls=tf.data.AUTOTUNE
