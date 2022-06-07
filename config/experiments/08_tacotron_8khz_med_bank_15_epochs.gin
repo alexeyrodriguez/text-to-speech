@@ -2,8 +2,8 @@ include 'config/default_8khz.gin'
 
 import gin.tf.external_configurables
 
-# Limit learning to samples up to 4 seconds
-datasets.secs_threshold = 4.0
+# Limit learning to samples up to 5 seconds
+datasets.secs_threshold = 5.0
 
 frames_per_step = 5
 
