@@ -13,6 +13,8 @@ class TestTacotronModel(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         gin.parse_config_file('config/experiments/test_tacotron.gin') # Do a config specific test
+        self.mel_bins = gin.query_parameter('%mel_bins')
+        self.frames_per_step = gin.query_parameter('%frames_per_step')
 
         # Test text
         self.input_text = 'in being comparatively modern'
@@ -20,7 +22,7 @@ class TestTacotronModel(tf.test.TestCase):
         self.encoded_text = tf.expand_dims(encoded_text, 0) # batch of size 1
 
         # Number of generated frames to use in tests
-        self.frames = 150
+        self.frames = 150 # make sure it is a multiple of frames_per_step
 
 
     def test_iterative_decode(self):
@@ -30,8 +32,11 @@ class TestTacotronModel(tf.test.TestCase):
         gen_mel_spec = model.decode(self.encoded_text, self.frames)
 
         # Now check that iterative decoding is consistent with RNN handling full sequence
-        in_mel_spec = tf.pad(gen_mel_spec[:, :-1,:], [(0, 0), (1,0), (0,0)]) # add go frame and drop last one
+        in_mel_spec = tf.reshape(gen_mel_spec, (1, -1, self.mel_bins * self.frames_per_step))
+        in_mel_spec = in_mel_spec[:, :-1, -self.mel_bins:] # use last frame as input
+        in_mel_spec = tf.pad(in_mel_spec, [(0, 0), (1,0), (0,0)]) # go frame
         out_mel_spec = model([self.encoded_text, in_mel_spec])
+        out_mel_spec = tf.reshape(out_mel_spec, (1, -1, self.mel_bins)) # flatten away frames_per_step
         self.assertAllClose(out_mel_spec, gen_mel_spec)
 
     def test_length(self):
@@ -41,7 +46,9 @@ class TestTacotronModel(tf.test.TestCase):
         self.assertAllClose(seq_length, ref_seq_length)
 
     def test_train(self):
-        training_dataset, validation_dataset = prepare_data.datasets(adapter=training.adapt_dataset)
+        training_dataset, validation_dataset = prepare_data.datasets(
+            adapter=training.adapt_dataset(self.frames_per_step, self.mel_bins)
+        )
         model = models.TacotronTTS()
         inputs, ref_outputs = list(training_dataset)[0]
 
@@ -67,7 +74,9 @@ class TestTacotronModel(tf.test.TestCase):
         new_model = models.TacotronTTS()
 
         # Train
-        training_dataset, validation_dataset = prepare_data.datasets(adapter=training.adapt_dataset)
+        training_dataset, validation_dataset = prepare_data.datasets(
+            adapter=training.adapt_dataset(self.frames_per_step, self.mel_bins)
+        )
         optimizer = tf.keras.optimizers.Adam(1e-4)
         epochs = 1
         training.train(

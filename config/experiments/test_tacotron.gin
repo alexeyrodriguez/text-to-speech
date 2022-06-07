@@ -5,10 +5,13 @@ import gin.tf.external_configurables
 # Limit learning to samples up to 4 seconds
 datasets.secs_threshold = 4.0
 
+frames_per_step = 2
+
 TacotronTTS.latent_dims = 16
 TacotronTTS.mel_bins = %mel_bins
 TacotronTTS.spec_bins = %spec_bins
 TacotronTTS.num_encoder_banks = 2
 TacotronTTS.num_decoder_banks = 2
+TacotronTTS.frames_per_step = %frames_per_step
 
 datasets.take_batches = 2

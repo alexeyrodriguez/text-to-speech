@@ -33,29 +33,43 @@ import models
 import wandb
 import wandb_logging
 
-def adapt_dataset(spectrogram, mel_spec, emb_transcription):
-    '''
-    We adapt the dataset for the following tasks.
-    A sequence to sequence task in which the transcription is encoded
-    and used by a sequence decoder to predict the mel spectrogram.
-    The mel spectrogram decoder is trained using teacher forcing where
-    a so-called go-frame (all zeros) and the first n-1 mel spectrogram frames
-    are used as inputs and as outputs the full mel spectrogram frames.
-    A final task translates the sequence of mel spectrogram frames to
-    spectrogram frames.
+def adapt_dataset(frames_per_step, mel_bins):
+    def f(spectrogram, mel_spec, emb_transcription):
+        '''
+        We adapt the dataset for the following tasks.
+        A sequence to sequence task in which the transcription is encoded
+        and used by a sequence decoder to predict the mel spectrogram.
+        The mel spectrogram decoder is trained using teacher forcing where
+        a so-called go-frame (all zeros) and the first n-1 mel spectrogram frames
+        are used as inputs and as outputs the full mel spectrogram frames.
+        A final task translates the sequence of mel spectrogram frames to
+        spectrogram frames.
 
-    Args:
-      spectrogram: sequence of spectrograms. shape = `[batch_size, n, s]`.
-      mel_spec: sequence of mel spectrograms. shape = `[batch_size, n, m]`.
-      emb_transcription: sequence of character embeddings. shape = `[batch_size, l, d]`
-    Returns:
-      Two pairs of inputs and outputs respectively. The inputs include the character
-      embeddings and the mel spectrogram inputs for the decoder task. The outputs
-      are the mel spectrogram outputs and spectrogram outputs.
-    '''
-    in_mel_spec = tf.pad(mel_spec[:, :-1,:], [(0, 0), (1,0), (0,0)])
-    out_mel_spec = mel_spec
-    return (emb_transcription, in_mel_spec), out_mel_spec #(out_mel_spec, spectrogram)
+        Args:
+          spectrogram: sequence of spectrograms. shape = `[batch_size, n, s]`.
+          mel_spec: sequence of mel spectrograms. shape = `[batch_size, n, m]`.
+          emb_transcription: sequence of character embeddings. shape = `[batch_size, l, d]`
+        Returns:
+          Two pairs of inputs and outputs respectively. The inputs include the character
+          embeddings and the mel spectrogram inputs for the decoder task. The outputs
+          are the mel spectrogram outputs and spectrogram outputs.
+        '''
+        # first pad to be a multiple of frames_per_step
+        len = tf.shape(mel_spec)[1]
+        remainder = len % frames_per_step
+        if remainder != 0:
+            mel_spec = tf.pad(mel_spec, [(0, 0), (0, frames_per_step - remainder), (0, 0)])
+            len = tf.shape(mel_spec)[1]
+        # group frames into steps of frames_per_step frames
+        mel_spec = tf.reshape(mel_spec, (-1, len / frames_per_step, mel_bins * frames_per_step))
+
+        # use the last frame of each group as inputs and add go frame
+        in_mel_spec = mel_spec[:, :-1, -mel_bins:] # use last frame as input
+        in_mel_spec = tf.pad(in_mel_spec, [(0, 0), (1,0), (0,0)]) # go frame
+
+        out_mel_spec = mel_spec
+        return (emb_transcription, in_mel_spec), out_mel_spec #(out_mel_spec, spectrogram)
+    return f
 
 def train_step(optimizer, mae, model, batch, inputs, outputs):
     inputs, mel_inputs = inputs
@@ -136,10 +150,11 @@ def train(
 
 @gin.configurable
 def train_driver(
-        args, optimizer, epochs, model,
-        batch_report=gin.REQUIRED, profiling=None, wandb_project='simple-tts', save_every_epochs=None
+        args, optimizer, epochs, model, mel_bins,
+        batch_report=gin.REQUIRED, profiling=None, wandb_project='simple-tts', save_every_epochs=None,
+        frames_per_step=1
     ):
-    training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset)
+    training_dataset, validation_dataset = prepare_data.datasets(adapter=adapt_dataset(frames_per_step, mel_bins))
 
     experiment_name = os.path.splitext(os.path.basename(args.experiment))[0]
     model_name = gin.query_parameter('train_driver.model').selector
@@ -184,7 +199,7 @@ def generate_gin_config_dict():
 
 if __name__=='__main__':
     gin.parse_config_file(args.experiment)
-    train_driver(args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED, model=gin.REQUIRED)
+    train_driver(args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED, model=gin.REQUIRED, mel_bins=gin.REQUIRED)
 
 
 

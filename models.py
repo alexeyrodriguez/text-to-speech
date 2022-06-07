@@ -50,14 +50,15 @@ class NaiveLstmTTS(tf.keras.Model):
 class TacotronTTS(tf.keras.Model):
     def __init__(
             self, latent_dims, mel_bins, spec_bins,
-            num_encoder_banks, num_decoder_banks
+            num_encoder_banks, num_decoder_banks, frames_per_step
         ):
         super().__init__()
         self.latent_dims = latent_dims
         self.mel_bins = mel_bins
         self.spec_bins = spec_bins
+        self.frames_per_step = frames_per_step
         self.tacotron_encoder = TacotronEncoder(latent_dims, num_encoder_banks)
-        self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, mel_bins)
+        self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, mel_bins, frames_per_step)
         # self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, mel_bins, spec_bins, num_decoder_banks)
 
     def call(self, inputs):
@@ -73,7 +74,8 @@ class TacotronTTS(tf.keras.Model):
         state = None
         self.tacotron_mel_decoder.setup_attended(encoded_inputs, seq_lengths)
 
-        input_frame = tf.zeros((tf.shape(encoder_inputs)[0], 1, self.mel_bins))
+        b = tf.shape(encoder_inputs)[0]
+        input_frame = tf.zeros((b, 1, self.mel_bins))
         output = []
         states = []
 
@@ -82,9 +84,10 @@ class TacotronTTS(tf.keras.Model):
             if return_states:
                 states.append(state)
             output.append(new_output)
-            input_frame = new_output
+            input_frame = new_output[:, :, -self.mel_bins:]
 
         mel_spec = tf.concat(output, axis=1)
+        mel_spec = tf.reshape(mel_spec, (b, -1, self.mel_bins))
         # spectrogram = self.tacotron_spec_decoder(mel_spec)
 
         if return_states:

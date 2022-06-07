@@ -96,7 +96,7 @@ class TacotronEncoder(keras.layers.Layer):
 @gin.configurable
 class TacotronMelDecoder(keras.layers.Layer):
     def __init__(
-            self, latent_dims, mel_bins, custom_attention=None
+            self, latent_dims, mel_bins, frames_per_step, custom_attention=None
         ):
         super().__init__()
         self.latent_dims = latent_dims
@@ -113,7 +113,7 @@ class TacotronMelDecoder(keras.layers.Layer):
         self.proj_attention = tf.keras.layers.Dense(2*latent_dims, name='mel_att_proj', use_bias=False)
         self.decode_rnn1 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
         self.decode_rnn2 = tf.keras.layers.GRU(2*latent_dims, return_sequences=True, return_state=True)
-        self.proj = tf.keras.layers.Dense(mel_bins, name='mel_dec_proj', use_bias=False, activation='relu')
+        self.proj = tf.keras.layers.Dense(frames_per_step * mel_bins, name='mel_dec_proj', use_bias=False, activation='relu')
 
     def _make_attention_rnn(self):
         if not self.custom_attention:
