@@ -28,6 +28,24 @@ class LstmSeq(keras.layers.Layer):
 # Tacotron: Towards End-to-End Speech Synthesis. Wang et al.
 # The author here prefers ceviche ;)
 
+class Highway(keras.layers.Layer):
+    def __init__(self, latent_dims, num_layers):
+        super().__init__()
+        self.h = [
+            keras.layers.Dense(latent_dims, activation='relu', name=f'hw_H_{i}')
+            for i in range(num_layers)
+        ]
+        self.t = [
+            keras.layers.Dense(latent_dims, activation='sigmoid', name=f'hw_T_{i}')
+            for i in range(num_layers)
+        ]
+    def call(self, inputs):
+        x = inputs
+        for h, t in zip(self.h, self.t):
+            gate = t(x)
+            x = h(x) * gate + x * (1.0 - gate)
+        return x
+
 class BatchNormConv1D(keras.layers.Conv1D):
     def __init__(self, filters, kernel_size, **kwargs):
         self.activation = kwargs.pop('activation', None)
@@ -62,6 +80,7 @@ class CBHG(keras.layers.Layer):
         self.pooling = keras.layers.MaxPooling1D(pool_size=2, strides=1, padding='same')
         self.conv_proj1 = BatchNormConv1D(latent_dims, 3, padding='same', activation='relu')
         self.conv_proj2 = BatchNormConv1D(input_dims, 3, padding='same')
+        self.highway = Highway(input_dims, 4)
         self.rnn_encoder = keras.layers.Bidirectional(
             keras.layers.GRU(last_dims // 2, return_sequences=True, return_state=False)
         )
@@ -70,7 +89,8 @@ class CBHG(keras.layers.Layer):
         x = self.pooling(x)
         x = self.conv_proj1(x, training=training)
         x = self.conv_proj2(x, training=training)
-        x = self.rnn_encoder(x+inputs, mask=mask)
+        x = self.highway(x+inputs)
+        x = self.rnn_encoder(x, mask=mask)
         return x
 
 class TacotronEncoder(keras.layers.Layer):
