@@ -8,7 +8,7 @@ datasets.secs_threshold = 4.0
 frames_per_step = 5
 
 train_driver.optimizer = @tf.keras.optimizers.Adam()
-train_driver.epochs = 5
+train_driver.epochs = 15
 train_driver.model = @TacotronTTS()
 train_driver.mel_bins = %mel_bins
 train_driver.batch_report = 8
