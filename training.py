@@ -71,6 +71,7 @@ def adapt_dataset(frames_per_step, mel_bins):
         return (emb_transcription, in_mel_spec), out_mel_spec #(out_mel_spec, spectrogram)
     return f
 
+@tf.function
 def train_step(optimizer, mae, model, batch, inputs, outputs):
     inputs, mel_inputs = inputs
     mel_outputs = outputs
