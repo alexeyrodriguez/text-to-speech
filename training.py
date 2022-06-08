@@ -71,25 +71,6 @@ def adapt_dataset(frames_per_step, mel_bins):
         return (emb_transcription, in_mel_spec), out_mel_spec #(out_mel_spec, spectrogram)
     return f
 
-@tf.function
-def train_step(optimizer, mae, model, batch, inputs, outputs):
-    inputs, mel_inputs = inputs
-    mel_outputs = outputs
-    with tf.GradientTape() as tape:
-        pred_mel_outputs = model([inputs, mel_inputs])
-        batch_loss = mae(mel_outputs, pred_mel_outputs)
-
-    variables = model.trainable_variables
-    gradients = tape.gradient(batch_loss, variables)
-    optimizer.apply_gradients(zip(gradients, variables))
-    return batch_loss, gradients
-
-def eval_step(optimizer, mae, model, batch, inputs, outputs):
-    inputs, mel_inputs = inputs
-    mel_outputs = outputs
-    pred_mel_outputs = model([inputs, mel_inputs])
-    return mae(mel_outputs, pred_mel_outputs)
-
 def train(
         optimizer, epochs, model, batch_report, training_dataset, validation_dataset,
         profiling=None, epoch_hook=None
@@ -101,6 +82,26 @@ def train(
     step = 0
 
     mae = tf.keras.losses.MeanAbsoluteError()
+
+    @tf.function
+    def train_step(inputs, outputs):
+        inputs, mel_inputs = inputs
+        mel_outputs = outputs
+        with tf.GradientTape() as tape:
+            pred_mel_outputs = model([inputs, mel_inputs])
+            batch_loss = mae(mel_outputs, pred_mel_outputs)
+
+        variables = model.trainable_variables
+        gradients = tape.gradient(batch_loss, variables)
+        optimizer.apply_gradients(zip(gradients, variables))
+        return batch_loss, gradients
+
+    @tf.function
+    def eval_step(inputs, outputs):
+        inputs, mel_inputs = inputs
+        mel_outputs = outputs
+        pred_mel_outputs = model([inputs, mel_inputs])
+        return mae(mel_outputs, pred_mel_outputs)
 
     def optional_profiling():
         nonlocal step
@@ -117,7 +118,7 @@ def train(
         losses = []
         for (batch, (inputs, outputs)) in enumerate(training_dataset):
             with optional_profiling():
-                batch_loss, gradients = train_step(optimizer, mae, model, batch, inputs, outputs)
+                batch_loss, gradients = train_step(inputs, outputs)
                 losses.append(batch_loss)
                 if batch % batch_report == 0:
                     print(f'Batch {batch}, loss={batch_loss}', flush=True)
@@ -127,7 +128,7 @@ def train(
 
         val_losses = []
         for (batch, (inputs, outputs)) in enumerate(validation_dataset):
-            batch_loss = eval_step(optimizer, mae, model, batch, inputs, outputs)
+            batch_loss = eval_step(inputs, outputs)
             val_losses.append(batch_loss)
 
         metrics = {
