@@ -73,6 +73,7 @@ def adapt_dataset(frames_per_step, mel_bins):
 
 def train(
         optimizer, epochs, model, batch_report, training_dataset, validation_dataset,
+        mel_bins, batch_size, frames_per_step,
         profiling=None, epoch_hook=None
     ):
 
@@ -83,7 +84,13 @@ def train(
 
     mae = tf.keras.losses.MeanAbsoluteError()
 
-    @tf.function
+    input_spec = (
+        (tf.TensorSpec(shape=[batch_size, None], dtype=tf.int64),
+         tf.TensorSpec(shape=[batch_size, None, mel_bins], dtype=tf.float32)),
+        tf.TensorSpec(shape=[batch_size, None, mel_bins*frames_per_step], dtype=tf.float32)
+    )
+
+    @tf.function(input_signature=input_spec)
     def train_step(inputs, outputs):
         inputs, mel_inputs = inputs
         mel_outputs = outputs
@@ -96,7 +103,7 @@ def train(
         optimizer.apply_gradients(zip(gradients, variables))
         return batch_loss, gradients
 
-    @tf.function
+    @tf.function(input_signature=input_spec)
     def eval_step(inputs, outputs):
         inputs, mel_inputs = inputs
         mel_outputs = outputs
@@ -152,7 +159,7 @@ def train(
 
 @gin.configurable
 def train_driver(
-        args, optimizer, epochs, model, mel_bins,
+        args, optimizer, epochs, model, mel_bins, batch_size,
         batch_report=gin.REQUIRED, profiling=None, wandb_project='simple-tts', save_every_epochs=None,
         frames_per_step=1
     ):
@@ -179,6 +186,7 @@ def train_driver(
 
     train(
         optimizer, epochs, model, batch_report, training_dataset, validation_dataset,
+        mel_bins, batch_size, frames_per_step,
         profiling=profiling, epoch_hook=epoch_hook
     )
 
@@ -201,7 +209,10 @@ def generate_gin_config_dict():
 
 if __name__=='__main__':
     gin.parse_config_file(args.experiment)
-    train_driver(args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED, model=gin.REQUIRED, mel_bins=gin.REQUIRED)
+    train_driver(
+        args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED,
+        model=gin.REQUIRED, mel_bins=gin.REQUIRED, batch_size=gin.REQUIRED
+    )
 
 
 

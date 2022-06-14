@@ -7,7 +7,9 @@ frame_step = 32
 frame_length = 128
 sample_rate = 8000
 mel_bins = 20
+batch_size = 32
 
+datasets.batch_size = %batch_size
 datasets.target_sample_rate = %sample_rate
 
 utils.stft_transform.frame_length = %frame_length

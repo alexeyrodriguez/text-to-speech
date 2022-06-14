@@ -14,6 +14,7 @@ train_driver.mel_bins = %mel_bins
 train_driver.batch_report = 8
 train_driver.save_every_epochs = 6
 train_driver.frames_per_step = %frames_per_step
+train_driver.batch_size = %batch_size
 
 tf.keras.optimizers.Adam.learning_rate = 1e-3
 

@@ -71,7 +71,7 @@ def encode_single_sample(mel_matrix,
     return do_it
 
 @gin.configurable
-def datasets(batch_size=32, target_sample_rate=gin.REQUIRED,
+def datasets(batch_size=gin.REQUIRED, target_sample_rate=gin.REQUIRED,
         secs_threshold=None, adapter=None, prefetch=True, take_batches=None, **kwargs
     ):
     metadata_df, wavs_path = prepare_ljspeech()
