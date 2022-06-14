@@ -85,9 +85,9 @@ def train(
     mae = tf.keras.losses.MeanAbsoluteError()
 
     input_spec = (
-        (tf.TensorSpec(shape=[batch_size, None], dtype=tf.int64),
-         tf.TensorSpec(shape=[batch_size, None, mel_bins], dtype=tf.float32)),
-        tf.TensorSpec(shape=[batch_size, None, mel_bins*frames_per_step], dtype=tf.float32)
+        (tf.TensorSpec(shape=[None, None], dtype=tf.int64),
+         tf.TensorSpec(shape=[None, None, mel_bins], dtype=tf.float32)),
+        tf.TensorSpec(shape=[None, None, mel_bins*frames_per_step], dtype=tf.float32)
     )
 
     @tf.function(input_signature=input_spec)
