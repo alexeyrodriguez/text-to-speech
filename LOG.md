@@ -1,3 +1,20 @@
+## 15 June, 2022
+
+Let experiment `08_tacotron_8khz_med_bank_600_epochs.gin`/`efficient-salad-74`
+run for 600 epochs with a threshold of 5 seconds. It ran 56400 steps in 13 hours.
+Finally the result of it is that the model started generating interesting mel-
+spectrograms from the go frame. Also attention is finally being used.
+
+It seems that running it for much longer, forces the model to go beyond low
+hanging fruits to reduce the loss. There's only so much the model can do
+to generate frames from the input frame under a teacher forcing regime.
+For further reduction in loss it needs to start using more information,
+in this case from the encoded transcript.
+
+Next now, that the setup works, we can start adding the linear spectrogram
+generation and further additional transformations that are I supposed needed
+to have better audio quality.
+
 ## 14 June, 2022
 
 Enabled tracing of training function. Unfortunately no speedup, rather
