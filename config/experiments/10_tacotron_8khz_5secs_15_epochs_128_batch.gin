@@ -1,6 +1,6 @@
 # Comparable to experiment 08
 
-include 'config/default_8khz_64_batch.gin'
+include 'config/default_8khz_128_batch.gin'
 
 import gin.tf.external_configurables
 
