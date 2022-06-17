@@ -1,28 +1,7 @@
 # Comparable to experiment 08
 
-include 'config/default_8khz_64_batch.gin'
+include 'config/experiments/tacotron_8khz.gin'
 
-import gin.tf.external_configurables
-
-# Limit learning to samples up to 5 seconds
-datasets.secs_threshold = 5.0
-
-frames_per_step = 5
-
-train_driver.optimizer = @tf.keras.optimizers.Adam()
+batch_size = 64
 train_driver.epochs = 15
-train_driver.model = @TacotronTTS()
-train_driver.mel_bins = %mel_bins
-train_driver.batch_report = 8
-train_driver.save_every_epochs = 6
-train_driver.frames_per_step = %frames_per_step
-train_driver.batch_size = %batch_size
-
-tf.keras.optimizers.Adam.learning_rate = 1e-3
-
-TacotronTTS.latent_dims = 64
-TacotronTTS.mel_bins = %mel_bins
-TacotronTTS.spec_bins = %spec_bins
-TacotronTTS.num_encoder_banks = 10
-TacotronTTS.num_decoder_banks = 3
-TacotronTTS.frames_per_step = %frames_per_step
+train_driver.save_every_epochs = 5
