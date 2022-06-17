@@ -69,7 +69,7 @@ class TacotronTTS(tf.keras.Model):
         # spec_outputs = self.tacotron_spec_decoder(mel_outputs)
         return mel_outputs
 
-    def decode(self, encoder_inputs, num_frames, return_states=None):
+    def decode(self, encoder_inputs, num_frames, return_states=False, return_attention=False):
         encoded_inputs, seq_lengths = self.tacotron_encoder(encoder_inputs)
         state = None
         self.tacotron_mel_decoder.setup_attended(encoded_inputs, seq_lengths)
@@ -81,7 +81,7 @@ class TacotronTTS(tf.keras.Model):
 
         for i in range(num_frames):
             new_output, state = self.tacotron_mel_decoder(input_frame, state)
-            if return_states:
+            if return_states or return_attention:
                 states.append(state)
             output.append(new_output)
             input_frame = new_output[:, :, -self.mel_bins:]
@@ -92,5 +92,11 @@ class TacotronTTS(tf.keras.Model):
 
         if return_states:
             return [mel_spec, states]
+        elif return_attention:
+            att_rnn_states = [s[0] for s in states]
+            cell_states = tf.concat([s[0] for s in att_rnn_states], 0)
+            attention = tf.concat([s[1] for s in att_rnn_states], 0)
+            alignments = tf.concat([s[2] for s in att_rnn_states], 0)
+            return [mel_spec, (cell_states, attention, alignments)]
         else:
             return mel_spec

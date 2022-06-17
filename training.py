@@ -138,12 +138,21 @@ def train(
             batch_loss = eval_step(inputs, outputs)
             val_losses.append(batch_loss)
 
+        # Diagnostic test of decoding
+        (transcription, _), _ = list(training_dataset.take(1))[0]
+        transcription = transcription[:1] # Batch of size one
+        mel_generated, (_, _, alignments) = model.decode(transcription, 10, return_attention=True)
+        mel_decode_norm = tf.norm(mel_generated).numpy()
+        mel_decode_alignments_std = tf.math.reduce_mean(tf.math.reduce_std(alignments, axis=0)).numpy()
+
         metrics = {
             'loss': np.array(losses).mean(),
             'val_loss': np.array(val_losses).mean(),
             'epoch_time': end_time - start_time,
             'step_time': (end_time - start_time) / (step - start_step),
             'step': step,
+            'mel_decode_norm': mel_decode_norm,
+            'mel_decode_alignments_std': mel_decode_alignments_std,
         }
 
         print(f'Epoch {epoch}, loss={metrics["loss"]}, val_loss={metrics["val_loss"]}, ',
