@@ -13,7 +13,7 @@ gcloud_create_instance.creation_args = {
     'scopes': 'storage-rw', # Needed to copy the model to gcs
 }
 
-gcloud_remote_training.git_repo_url = 'https://github.com/alexeyrodriguez/simple-tts.git' # Point to your repo
+gcloud_remote_training.git_repo_url = 'https://github.com/alexeyrodriguez/text-to-speech.git' # Point to your repo
 gcloud_remote_training.git_branch = 'master' # You might want to use something different to master
 gcloud_remote_training.gcs_model_path = 'gs://BUCKET/DIR/'
 
