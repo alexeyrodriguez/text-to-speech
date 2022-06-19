@@ -107,7 +107,14 @@ class TacotronEncoder(keras.layers.Layer):
         self.cbhg = CBHG(latent_dims, latent_dims, latent_dims, num_banks)
     def call(self, inputs, training=None):
         mask = inputs != tf.constant(-1, dtype=tf.int64)
-        x = self.embeddings(inputs)
+
+        # Work-around to avoid out-of-bounds
+        z_padded = tf.where(mask, inputs, 0)
+        x = self.embeddings(z_padded)
+        f_mask = tf.cast(mask, dtype=tf.float32)
+        f_mask = tf.expand_dims(f_mask, axis=-1)
+        x = x * f_mask
+
         x = self.pre_net(x, training=training)
         x = self.cbhg(x, training=training, mask=mask)
         seq_lengths = keras.backend.sum(tf.where(mask, 1, 0), 1)
