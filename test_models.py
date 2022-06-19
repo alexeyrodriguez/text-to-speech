@@ -15,6 +15,7 @@ class TestTacotronModel(tf.test.TestCase):
         gin.parse_config_file('config/experiments/test_tacotron.gin') # Do a config specific test
         self.mel_bins = gin.query_parameter('%mel_bins')
         self.frames_per_step = gin.query_parameter('%frames_per_step')
+        self.batch_size = gin.query_parameter('%batch_size')
 
         # Test text
         self.input_text = 'in being comparatively modern'
@@ -60,7 +61,8 @@ class TestTacotronModel(tf.test.TestCase):
         optimizer = tf.keras.optimizers.Adam(1e-4)
         epochs = 1
         training.train(
-            optimizer, epochs, model, 8, training_dataset, validation_dataset
+            optimizer, epochs, model, 8, training_dataset, validation_dataset,
+            self.mel_bins, self.batch_size, self.frames_per_step,
         )
 
         outputs = model(inputs)
@@ -80,7 +82,8 @@ class TestTacotronModel(tf.test.TestCase):
         optimizer = tf.keras.optimizers.Adam(1e-4)
         epochs = 1
         training.train(
-            optimizer, epochs, model, 8, training_dataset, validation_dataset
+            optimizer, epochs, model, 8, training_dataset, validation_dataset,
+            self.mel_bins, self.batch_size, self.frames_per_step,
         )
 
         with TemporaryDirectory() as tmpdir:
