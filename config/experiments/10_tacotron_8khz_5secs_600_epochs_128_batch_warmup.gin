@@ -3,7 +3,7 @@
 include 'config/experiments/tacotron_8khz.gin'
 
 batch_size = 128
-train_driver.epochs = 15
+train_driver.epochs = 600
 train_driver.save_every_epochs = 5
 
 tf.keras.optimizers.Adam.learning_rate = @WarmUp()
