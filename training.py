@@ -21,6 +21,7 @@ if __name__=='__main__':
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import tensorflow as tf
+import tensorflow_addons as tfa
 import tensorflow.keras as keras
 import pandas as pd
 import numpy as np
@@ -261,6 +262,7 @@ def generate_gin_config_dict():
 
 
 if __name__=='__main__':
+    gin.external_configurable(tfa.optimizers.LAMB, module='tfa.optimizers')
     gin.parse_config_file(args.experiment)
     train_driver(
         args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED,
