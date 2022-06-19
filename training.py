@@ -134,7 +134,7 @@ def train(
         tf.TensorSpec(shape=[None, None, mel_bins*frames_per_step], dtype=tf.float32)
     )
 
-    # @tf.function(input_signature=input_spec)
+    @tf.function(input_signature=input_spec)
     def train_step(inputs, outputs):
         inputs, mel_inputs = inputs
         mel_outputs = outputs
@@ -147,7 +147,7 @@ def train(
         optimizer.apply_gradients(zip(gradients, variables))
         return batch_loss, gradients
 
-    # @tf.function(input_signature=input_spec)
+    @tf.function(input_signature=input_spec)
     def eval_step(inputs, outputs):
         inputs, mel_inputs = inputs
         mel_outputs = outputs
