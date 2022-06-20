@@ -36,6 +36,8 @@ import wandb_logging
 
 from typing import Callable
 
+gin.external_configurable(tfa.optimizers.LAMB, module='tfa.optimizers')
+
 # https://stackoverflow.com/questions/63213252/using-learning-rate-schedule-and-learning-rate-warmup-with-tensorflow2
 @gin.configurable
 class WarmUp(tf.keras.optimizers.schedules.LearningRateSchedule):
@@ -265,7 +267,6 @@ if __name__=='__main__':
     if len(tf.config.list_physical_devices('GPU')) == 0:
         raise RuntimeError('No GPU available')
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-    gin.external_configurable(tfa.optimizers.LAMB, module='tfa.optimizers')
     gin.parse_config_file(args.experiment)
     train_driver(
         args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED,
