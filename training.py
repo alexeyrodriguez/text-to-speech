@@ -262,6 +262,9 @@ def generate_gin_config_dict():
 
 
 if __name__=='__main__':
+    if len(tf.config.list_physical_devices('GPU')) == 0:
+        raise RuntimeError('No GPU available')
+    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
     gin.external_configurable(tfa.optimizers.LAMB, module='tfa.optimizers')
     gin.parse_config_file(args.experiment)
     train_driver(
