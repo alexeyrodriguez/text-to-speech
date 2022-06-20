@@ -30,13 +30,13 @@ class TestTacotronModel(tf.test.TestCase):
         model = models.TacotronTTS()
 
         # Generate mel and linear spectrograms from input text
-        gen_mel_spec = model.decode(self.encoded_text, self.frames)
+        gen_mel_spec, _ = model.decode(self.encoded_text, self.frames)
 
         # Now check that iterative decoding is consistent with RNN handling full sequence
         in_mel_spec = tf.reshape(gen_mel_spec, (1, -1, self.mel_bins * self.frames_per_step))
         in_mel_spec = in_mel_spec[:, :-1, -self.mel_bins:] # use last frame as input
         in_mel_spec = tf.pad(in_mel_spec, [(0, 0), (1,0), (0,0)]) # go frame
-        out_mel_spec = model([self.encoded_text, in_mel_spec])
+        out_mel_spec, _ = model([self.encoded_text, in_mel_spec])
         out_mel_spec = tf.reshape(out_mel_spec, (1, -1, self.mel_bins)) # flatten away frames_per_step
         self.assertAllClose(out_mel_spec, gen_mel_spec)
 
@@ -51,11 +51,11 @@ class TestTacotronModel(tf.test.TestCase):
             adapter=training.adapt_dataset(self.frames_per_step, self.mel_bins)
         )
         model = models.TacotronTTS()
-        inputs, ref_outputs = list(training_dataset)[0]
+        inputs, (ref_mel_outputs, ref_outputs) = list(training_dataset)[0]
 
         mae = tf.keras.losses.MeanAbsoluteError()
-        outputs = model(inputs)
-        pre_train_loss = mae(outputs, ref_outputs)
+        mel_outputs, outputs = model(inputs)
+        pre_train_loss = mae(mel_outputs, ref_mel_outputs) + mae(outputs, ref_outputs)
 
         # Train
         optimizer = tf.keras.optimizers.Adam(1e-4)
@@ -65,8 +65,8 @@ class TestTacotronModel(tf.test.TestCase):
             self.mel_bins, self.batch_size, self.frames_per_step,
         )
 
-        outputs = model(inputs)
-        post_train_loss = mae(outputs, ref_outputs)
+        mel_outputs, outputs = model(inputs)
+        post_train_loss = mae(mel_outputs, ref_mel_outputs) + mae(outputs, ref_outputs)
 
         assert pre_train_loss > post_train_loss
 
@@ -91,8 +91,8 @@ class TestTacotronModel(tf.test.TestCase):
             model.save_weights(model_file_name)
             new_model.load_weights(model_file_name)
 
-            gen_mel_spec = model.decode(self.encoded_text, self.frames)
-            gen_mel_spec2 = new_model.decode(self.encoded_text, self.frames)
+            gen_mel_spec, _ = model.decode(self.encoded_text, self.frames)
+            gen_mel_spec2, _ = new_model.decode(self.encoded_text, self.frames)
             self.assertAllClose(gen_mel_spec, gen_mel_spec2)
 
 

@@ -106,6 +106,7 @@ def adapt_dataset(frames_per_step, mel_bins):
         remainder = len % frames_per_step
         if remainder != 0:
             mel_spec = tf.pad(mel_spec, [(0, 0), (0, frames_per_step - remainder), (0, 0)])
+            spectrogram = tf.pad(spectrogram, [(0, 0), (0, frames_per_step - remainder), (0, 0)])
             len = tf.shape(mel_spec)[1]
         # group frames into steps of frames_per_step frames
         mel_spec = tf.reshape(mel_spec, (-1, len / frames_per_step, mel_bins * frames_per_step))
@@ -115,7 +116,7 @@ def adapt_dataset(frames_per_step, mel_bins):
         in_mel_spec = tf.pad(in_mel_spec, [(0, 0), (1,0), (0,0)]) # go frame
 
         out_mel_spec = mel_spec
-        return (emb_transcription, in_mel_spec), out_mel_spec #(out_mel_spec, spectrogram)
+        return (emb_transcription, in_mel_spec), (out_mel_spec, spectrogram)
     return f
 
 def train(
@@ -140,10 +141,10 @@ def train(
     @tf.function(input_signature=input_spec)
     def train_step(inputs, outputs):
         inputs, mel_inputs = inputs
-        mel_outputs = outputs
+        mel_outputs, spec_outputs = outputs
         with tf.GradientTape() as tape:
-            pred_mel_outputs = model([inputs, mel_inputs])
-            batch_loss = mae(mel_outputs, pred_mel_outputs)
+            pred_mel_outputs, pred_spec_outputs = model([inputs, mel_inputs])
+            batch_loss = mae(mel_outputs, pred_mel_outputs) + mae(spec_outputs, pred_spec_outputs)
 
         variables = model.trainable_variables
         gradients = tape.gradient(batch_loss, variables)
@@ -153,9 +154,9 @@ def train(
     @tf.function(input_signature=input_spec)
     def eval_step(inputs, outputs):
         inputs, mel_inputs = inputs
-        mel_outputs = outputs
-        pred_mel_outputs = model([inputs, mel_inputs])
-        return mae(mel_outputs, pred_mel_outputs)
+        mel_outputs, spec_outputs = outputs
+        pred_mel_outputs, pred_spec_outputs = model([inputs, mel_inputs])
+        return mae(mel_outputs, pred_mel_outputs) + mae(spec_outputs, pred_spec_outputs)
 
     def optional_profiling():
         nonlocal step
@@ -188,7 +189,7 @@ def train(
         # Diagnostic test of decoding
         (transcription, _), _ = list(training_dataset.take(1))[0]
         transcription = transcription[:1] # Batch of size one
-        mel_generated, (_, _, alignments) = model.decode(transcription, 10, return_attention=True)
+        (mel_generated, _), (_, _, alignments) = model.decode(transcription, 10, return_attention=True)
         mel_decode_abs_mean = tf.math.reduce_mean(tf.abs(mel_generated)).numpy()
         mel_decode_alignments_std = tf.math.reduce_mean(tf.math.reduce_std(alignments, axis=0)).numpy()
 

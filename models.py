@@ -59,15 +59,16 @@ class TacotronTTS(tf.keras.Model):
         self.frames_per_step = frames_per_step
         self.tacotron_encoder = TacotronEncoder(latent_dims, num_encoder_banks)
         self.tacotron_mel_decoder = TacotronMelDecoder(latent_dims, mel_bins, frames_per_step)
-        # self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, mel_bins, spec_bins, num_decoder_banks)
+        self.tacotron_spec_decoder = TacotronSpecDecoder(latent_dims, mel_bins, spec_bins, num_decoder_banks)
 
     def call(self, inputs):
         inputs, mel_inputs = inputs
         enc_output, seq_lengths = self.tacotron_encoder(inputs)
         self.tacotron_mel_decoder.setup_attended(enc_output, seq_lengths)
         mel_outputs, _ = self.tacotron_mel_decoder(mel_inputs)
-        # spec_outputs = self.tacotron_spec_decoder(mel_outputs)
-        return mel_outputs
+        flat_mel_outputs = tf.reshape(mel_outputs, (tf.shape(inputs)[0], -1, self.mel_bins))
+        spec_outputs = self.tacotron_spec_decoder(flat_mel_outputs)
+        return mel_outputs, spec_outputs
 
     def decode(self, encoder_inputs, num_frames, return_states=False, return_attention=False):
         encoded_inputs, seq_lengths = self.tacotron_encoder(encoder_inputs)
@@ -88,15 +89,16 @@ class TacotronTTS(tf.keras.Model):
 
         mel_spec = tf.concat(output, axis=1)
         mel_spec = tf.reshape(mel_spec, (b, -1, self.mel_bins))
-        # spectrogram = self.tacotron_spec_decoder(mel_spec)
+        spectrogram = self.tacotron_spec_decoder(mel_spec)
+        res = (mel_spec, spectrogram)
 
         if return_states:
-            return [mel_spec, states]
+            return [res, states]
         elif return_attention:
             att_rnn_states = [s[0] for s in states]
             cell_states = tf.concat([s[0] for s in att_rnn_states], 0)
             attention = tf.concat([s[1] for s in att_rnn_states], 0)
             alignments = tf.concat([s[2] for s in att_rnn_states], 0)
-            return [mel_spec, (cell_states, attention, alignments)]
+            return [res, (cell_states, attention, alignments)]
         else:
-            return mel_spec
+            return res

@@ -195,9 +195,10 @@ class AttentionConcatenatorWrapper(tfa.seq2seq.AttentionWrapper):
 class TacotronSpecDecoder(keras.layers.Layer):
     def __init__(self, latent_dims, mel_bins, spec_bins, num_banks):
         super().__init__()
-        self.cbhg = CBHG(mel_bins, latent_dims, spec_bins, num_banks)
+        self.cbhg = CBHG(mel_bins, latent_dims, latent_dims, num_banks)
+        self.proj = tf.keras.layers.Dense(spec_bins, name='spec_proj', use_bias=False, activation='relu')
     def call(self, inputs):
-        return self.cbhg(inputs)
+        return self.proj(self.cbhg(inputs))
 
 class RNNAttentionNaive(keras.layers.Layer):
     '''
