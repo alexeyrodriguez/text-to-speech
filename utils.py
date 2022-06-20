@@ -22,6 +22,11 @@ def make_mel_filter_bank(num_mel_filter_banks, fft_length, sample_rate):
         sample_rate=sample_rate
     ) # shape [spec_bins, mel_bins]
 
+def tf_to_norm_db(x, min_val=1e-2):
+    x = tf.math.log(tf.maximum(x, min_val))
+    x = (x - tf.math.log(min_val)) / (-tf.math.log(min_val))
+    return x
+
 # TODO: assumes same fft and frame sizes
 # Based on https://github.com/bkvogel/griffin_lim/blob/master/audio_utilities.py
 # Check faster convergence tricks from e.g. librosa
