@@ -121,7 +121,7 @@ def adapt_dataset(frames_per_step, mel_bins):
 
 def train(
         optimizer, epochs, model, batch_report, training_dataset, validation_dataset,
-        mel_bins, batch_size, frames_per_step,
+        mel_bins, batch_size, frames_per_step, spec_bins,
         profiling=None, epoch_hook=None
     ):
 
@@ -135,7 +135,8 @@ def train(
     input_spec = (
         (tf.TensorSpec(shape=[None, None], dtype=tf.int64),
          tf.TensorSpec(shape=[None, None, mel_bins], dtype=tf.float32)),
-        tf.TensorSpec(shape=[None, None, mel_bins*frames_per_step], dtype=tf.float32)
+        (tf.TensorSpec(shape=[None, None, mel_bins*frames_per_step], dtype=tf.float32),
+         tf.TensorSpec(shape=[None, None, spec_bins], dtype=tf.float32))
     )
 
     @tf.function(input_signature=input_spec)
@@ -216,7 +217,7 @@ def train(
 
 @gin.configurable
 def train_driver(
-        args, optimizer, epochs, model, mel_bins, batch_size,
+        args, optimizer, epochs, model, mel_bins, batch_size, spec_bins,
         batch_report=gin.REQUIRED, profiling=None, wandb_project='simple-tts', save_every_epochs=None,
         frames_per_step=1
     ):
@@ -243,7 +244,7 @@ def train_driver(
 
     train(
         optimizer, epochs, model, batch_report, training_dataset, validation_dataset,
-        mel_bins, batch_size, frames_per_step,
+        mel_bins, batch_size, frames_per_step, spec_bins,
         profiling=profiling, epoch_hook=epoch_hook
     )
 
@@ -271,7 +272,7 @@ if __name__=='__main__':
     gin.parse_config_file(args.experiment)
     train_driver(
         args, optimizer=gin.REQUIRED, epochs=gin.REQUIRED,
-        model=gin.REQUIRED, mel_bins=gin.REQUIRED, batch_size=gin.REQUIRED
+        model=gin.REQUIRED, mel_bins=gin.REQUIRED, batch_size=gin.REQUIRED, spec_bins=gin.REQUIRED
     )
 
 
