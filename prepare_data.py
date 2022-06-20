@@ -58,6 +58,9 @@ def encode_single_sample(mel_matrix,
             utils.stft_transform(audio, gin.REQUIRED, gin.REQUIRED, gin.REQUIRED)
         mel_spec = tf.matmul(spectrogram, mel_matrix)
 
+        spectrogram = utils.tf_to_norm_db(spectrogram)
+        mel_spec = utils.tf_to_norm_db(mel_spec)
+
         res = [spectrogram, mel_spec, label]
         if keep_audio:
             res.append(audio)
