@@ -2,7 +2,7 @@ include 'config/experiments/tacotron_8khz.gin'
 
 batch_size = 256
 train_driver.epochs = 3000
-train_driver.save_every_epochs = 500
+train_driver.save_every_epochs = 100
 train_driver.optimizer = @tfa.optimizers.LAMB()
 
 
