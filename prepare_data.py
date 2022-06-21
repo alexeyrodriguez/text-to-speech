@@ -42,7 +42,7 @@ def decode_wav(wavs_path):
 
 def encode_single_sample(mel_matrix,
         keep_audio=False, keep_raw_spectrogram=False, keep_transcription=False,
-        target_sample_rate=None
+        target_sample_rate=None, log_compression=True,
     ):
     def do_it(audio, sample_rate, transcription):
         # Resample audio
@@ -58,8 +58,9 @@ def encode_single_sample(mel_matrix,
             utils.stft_transform(audio, gin.REQUIRED, gin.REQUIRED, gin.REQUIRED)
         mel_spec = tf.matmul(spectrogram, mel_matrix)
 
-        spectrogram = utils.tf_to_norm_db(spectrogram)
-        mel_spec = utils.tf_to_norm_db(mel_spec)
+        if log_compression:
+            spectrogram = utils.tf_to_norm_db(spectrogram)
+            mel_spec = utils.tf_to_norm_db(mel_spec)
 
         res = [spectrogram, mel_spec, label]
         if keep_audio:
@@ -94,7 +95,8 @@ def datasets(batch_size=gin.REQUIRED, target_sample_rate=gin.REQUIRED,
             dataset = dataset.filter(le_threshold)
 
         dataset = dataset.map(
-            encode_single_sample(mel_matrix, target_sample_rate=target_sample_rate, **kwargs), num_parallel_calls=tf.data.AUTOTUNE
+            encode_single_sample(mel_matrix, target_sample_rate=target_sample_rate, **kwargs),
+            num_parallel_calls=tf.data.AUTOTUNE
         )
         padding_values = [0.0, 0.0, tf.constant(-1, dtype=tf.int64)]
         if 'keep_audio' in kwargs:
