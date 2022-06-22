@@ -1,3 +1,21 @@
+## 22 June, 2022
+
+Experiments in the last days to increase the batch size, at the same time
+adjust learning rates to make sure learning does not suffer from large batches.
+Using the ideas from
+"Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour", Goyal et al. and
+"Large Batch Optimization for Deep Learning: Training BERT in 76 minutes", You et al.
+Using large batches significantly increases throughput:
+from 0.88 seconds per step with 32 examples (`08_tacotron_8khz_med_bank_15_epochs.ipynb`)
+to 1.15 seconds with 128 examples (`10_tacotron_8khz_5secs_600_epochs_128_batch.ipynb`).
+Unfortunately there might be a decrease in the quality of the learning compared
+to a batch size of 32. The run with batch size 32 for 600 epochs
+(`08_tacotron_8khz_med_bank_600_epochs.ipynb`) ran for 13 hours, to match the number
+of steps before the first decrease in learning rate, we would have to run it 10x longer.
+
+Additionally there seems to be a bug in the log compression, when using it training
+diverges in the epoch 798 (`11_tacotron_8khz_5secs_3000_epochs_256_batch_lamb.ipynb`).
+
 ## 15 June, 2022
 
 Let experiment `08_tacotron_8khz_med_bank_600_epochs.gin`/`efficient-salad-74`
