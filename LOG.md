@@ -16,6 +16,26 @@ of steps before the first decrease in learning rate, we would have to run it 10x
 Additionally there seems to be a bug in the log compression, when using it training
 diverges in the epoch 798 (`11_tacotron_8khz_5secs_3000_epochs_256_batch_lamb.ipynb`).
 
+Also let's consider the differences between the configuration I use most and the
+one from the Tacotron paper:
+ * Tacotron: 24khz samples, frame length is 50 ms (1200 points), 
+ shift is 12.5 ms (300 points) and the FFT window has size 2048. The mel target
+ has 80 bins. The latent dimension size is 128. The number of convolution banks for
+ the encoder and decoder are 16 and 8 respectively.
+ * 8khz config in this repo: 8khz samples, frame length is 16ms (128) (?), shift 4ms (?),
+ and FFT window size is 128. The mel target has 20 bins and the latent dimension is 64.
+ The number of convolution banks for encoder and decoder are 10 and 5 respectively.
+ This configuration was initially just for testing but now the choices are suboptimal
+ for perceptual quality.
+ 
+Additional things not yet implemented:
+ * Pre-emphasis
+ * Raising magnitudes by a power of 1.2 before Griffin-Lim to reduce artifacts.
+ * Higher weights on frequencies below 3khz as implemented here:
+ https://github.com/keithito/tacotron/blob/master/models/tacotron.py#L120
+ * The 11 experiment should run for 6 times longer to match the steps
+ in the paper (assuming we can draw some equivalence for a batch of size 128)
+
 ## 15 June, 2022
 
 Let experiment `08_tacotron_8khz_med_bank_600_epochs.gin`/`efficient-salad-74`
