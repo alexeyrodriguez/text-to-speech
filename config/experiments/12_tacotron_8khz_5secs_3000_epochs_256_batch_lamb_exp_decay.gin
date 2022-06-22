@@ -14,7 +14,7 @@ initial_learning_rate = 2.8284e-3
 
 WarmUp.initial_learning_rate = %initial_learning_rate
 WarmUp.warmup_steps = 120
-WarmUp.decay_schedule_fn = @tf.keras.optimizers.schedules.PiecewiseConstantDecay()
+WarmUp.decay_schedule_fn = @tf.keras.optimizers.schedules.ExponentialDecay()
 
 tf.keras.optimizers.schedules.ExponentialDecay.initial_learning_rate = %initial_learning_rate
 tf.keras.optimizers.schedules.ExponentialDecay.decay_steps = 14400
