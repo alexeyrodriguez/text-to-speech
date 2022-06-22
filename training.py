@@ -202,6 +202,7 @@ def train(
             'step': step,
             'mel_decode_abs_mean': mel_decode_abs_mean,
             'mel_decode_alignments_std': mel_decode_alignments_std,
+            'learning_rate': optimizer.learning_rate.numpy(),
         }
 
         print(f'Epoch {epoch}, loss={metrics["loss"]}, val_loss={metrics["val_loss"]}, ',

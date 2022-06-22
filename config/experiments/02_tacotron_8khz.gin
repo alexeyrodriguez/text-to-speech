@@ -17,6 +17,7 @@ train_driver.batch_report = 8
 train_driver.save_every_epochs = 2
 train_driver.frames_per_step = %frames_per_step
 train_driver.batch_size = %batch_size
+train_driver.spec_bins = %spec_bins
 
 tf.keras.optimizers.Adam.learning_rate = 1e-3
 
