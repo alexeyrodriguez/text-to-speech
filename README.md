@@ -1,3 +1,6 @@
+I was not able to make much progress on this repo due to time and compute budget constraints.
+The following Text-to-Speech project probably is more interesting: https://github.com/alexeyrodriguez/toktts
+
 # Simple Text-to-Speech
 
 This repo is to enable easy experimentation with
